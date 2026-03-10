@@ -1,0 +1,252 @@
+---
+title: 'ComponentRenderOptions'
+description: 'Widget render options for customizing Turnstile behavior and appearance'
+icon: 'palette'
+---
+
+## Interface
+
+```tsx
+interface ComponentRenderOptions extends Pick<
+  Turnstile.RenderParameters,
+  'action' | 'cData' | 'theme' | 'retry' | 'language' | 'execution' | 'appearance'
+> {
+  tabIndex?: number
+  responseField?: boolean
+  responseFieldName?: string
+  retryInterval?: number
+  size?: WidgetSize
+  refreshExpired?: RefreshExpiredMode
+  refreshTimeout?: RefreshTimeoutMode
+  feedbackEnabled?: boolean
+}
+```
+
+## Usage
+
+Pass these options via the `options` prop:
+
+```tsx
+<Turnstile
+  siteKey="your-site-key"
+  options={{
+    theme: 'dark',
+    size: 'compact',
+    language: 'en'
+  }}
+/>
+```
+
+## Appearance Options
+
+<ParamField path="theme" type="'auto' | 'light' | 'dark'" default="'auto'">
+  The theme of the Turnstile widget.
+  
+  - `'auto'`: Respects the user's system preference
+  - `'light'`: Forces light theme
+  - `'dark'`: Forces dark theme
+  
+  ```tsx
+  options={{ theme: 'dark' }}
+  ```
+</ParamField>
+
+<ParamField path="size" type="WidgetSize" default="'normal'">
+  The size of the Turnstile widget.
+  
+  Accepted values:
+  - `'normal'`: 300x65px
+  - `'compact'`: 150x140px
+  - `'flexible'`: 100% width (min: 300px) x 65px
+  - `'invisible'`: No visible widget (for invisible type widgets only)
+  
+  ```tsx
+  options={{ size: 'compact' }}
+  ```
+</ParamField>
+
+<ParamField path="appearance" type="AppearanceMode" default="'always'">
+  Controls when the widget is visible.
+  
+  - `'always'`: Widget is always visible
+  - `'execute'`: Widget only appears when executing
+  - `'interaction-only'`: Widget only shown when/if interactivity is required
+  
+  ```tsx
+  options={{ appearance: 'interaction-only' }}
+  ```
+</ParamField>
+
+<ParamField path="language" type="string" default="'auto'">
+  The language for the widget. Must be a valid ISO 639-1 country code or `'auto'`.
+  
+  Examples: `'en'`, `'es'`, `'fr'`, `'de'`, `'ja'`, `'zh-CN'`
+  
+  See [TurnstileLangCode](/api/constants#supported-languages) for supported languages.
+  
+  ```tsx
+  options={{ language: 'es' }}
+  ```
+</ParamField>
+
+## Behavior Options
+
+<ParamField path="execution" type="ExecutionMode" default="'render'">
+  Controls when to obtain the token.
+  
+  - `'render'`: Obtains token immediately upon render (default)
+  - `'execute'`: Obtains token only when `.execute()` method is called
+  
+  ```tsx
+  options={{ execution: 'execute' }}
+  ```
+</ParamField>
+
+<ParamField path="retry" type="FailureRetryMode" default="'auto'">
+  How to retry on widget failure.
+  
+  - `'auto'`: Automatically allows the user to retry
+  - `'never'`: Never allows retry
+  
+  ```tsx
+  options={{ retry: 'auto' }}
+  ```
+</ParamField>
+
+<ParamField path="retryInterval" type="number" default="8000">
+  Duration in milliseconds before the widget automatically retries after a failure.
+  
+  ```tsx
+  options={{ retryInterval: 5000 }} // 5 seconds
+  ```
+</ParamField>
+
+<ParamField path="refreshExpired" type="RefreshExpiredMode" default="'auto'">
+  The refresh mode when a token expires.
+  
+  - `'auto'`: Automatically refreshes the widget
+  - `'manual'`: Prompts the user with a refresh button
+  - `'never'`: Never refreshes the widget
+  
+  ```tsx
+  options={{ refreshExpired: 'manual' }}
+  ```
+</ParamField>
+
+<ParamField path="refreshTimeout" type="RefreshTimeoutMode" default="'auto'">
+  The refresh mode when the widget times out.
+  
+  - `'auto'`: Automatically refreshes the widget
+  - `'manual'`: Prompts the user with a refresh button  
+  - `'never'`: Never refreshes the widget
+  
+  ```tsx
+  options={{ refreshTimeout: 'manual' }}
+  ```
+</ParamField>
+
+## Data Options
+
+<ParamField path="action" type="string">
+  A customer value used to differentiate widgets under the same sitekey in analytics. Returned upon validation.
+  
+  Useful for tracking which form or page the widget was used on.
+  
+  ```tsx
+  options={{ action: 'login' }}
+  ```
+</ParamField>
+
+<ParamField path="cData" type="string">
+  Customer payload that can be used to attach customer data to the challenge. Returned upon validation.
+  
+  The data integrity is protected from modifications by attackers.
+  
+  ```tsx
+  options={{ cData: JSON.stringify({ userId: '12345' }) }}
+  ```
+</ParamField>
+
+## Form Integration Options
+
+<ParamField path="responseField" type="boolean" default="true">
+  Whether to add a hidden response input element with the Turnstile token.
+  
+  When `true`, the token is automatically added as a hidden input in the container.
+  
+  ```tsx
+  options={{ responseField: true }}
+  ```
+</ParamField>
+
+<ParamField path="responseFieldName" type="string" default="'cf-turnstile-response'">
+  The name of the hidden input element added to the container.
+  
+  ```tsx
+  options={{ responseFieldName: 'turnstile_token' }}
+  ```
+</ParamField>
+
+## Accessibility Options
+
+<ParamField path="tabIndex" type="number" default="0">
+  The tabindex of Turnstile's iframe for accessibility purposes.
+  
+  ```tsx
+  options={{ tabIndex: 1 }}
+  ```
+</ParamField>
+
+<ParamField path="feedbackEnabled" type="boolean" default="true">
+  Allows Cloudflare to gather visitor feedback upon widget failure.
+  
+  ```tsx
+  options={{ feedbackEnabled: false }}
+  ```
+</ParamField>
+
+## Complete Example
+
+```tsx
+<Turnstile
+  siteKey="your-site-key"
+  options={{
+    theme: 'dark',
+    size: 'compact',
+    language: 'en',
+    execution: 'render',
+    appearance: 'always',
+    retry: 'auto',
+    retryInterval: 8000,
+    refreshExpired: 'auto',
+    refreshTimeout: 'auto',
+    responseField: true,
+    responseFieldName: 'cf-turnstile-response',
+    tabIndex: 0,
+    feedbackEnabled: true,
+    action: 'login',
+    cData: JSON.stringify({ page: 'login' })
+  }}
+/>
+```
+
+## Type Definitions
+
+```tsx
+type WidgetSize = 'normal' | 'compact' | 'flexible' | 'invisible'
+
+type AppearanceMode = 'always' | 'execute' | 'interaction-only'
+
+type ExecutionMode = 'render' | 'execute'
+
+type FailureRetryMode = 'never' | 'auto'
+
+type RefreshExpiredMode = 'never' | 'manual' | 'auto'
+
+type RefreshTimeoutMode = 'never' | 'manual' | 'auto'
+```
+
+## Related Types
+
+- [TurnstileProps](/api/turnstile-props) - Component props
+- [Constants](/api/constants) - Language codes and other constants

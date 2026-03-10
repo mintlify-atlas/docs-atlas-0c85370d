@@ -1,0 +1,388 @@
+---
+title: Handling Expiration
+description: Learn how to manage token expiration and refresh widgets automatically.
+---
+
+## Overview
+
+Turnstile tokens have a limited lifetime (typically 5 minutes). After expiration, the token is no longer valid and must be refreshed. React Turnstile provides several ways to handle expiration gracefully.
+
+## Understanding Token Expiration
+
+When a Turnstile token expires:
+1. The `onExpire` callback is triggered
+2. The widget can automatically refresh (default behavior)
+3. The user may need to complete a new challenge
+
+## Automatic Refresh (Default)
+
+By default, Turnstile automatically refreshes expired tokens:
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+
+function MyForm() {
+  return (
+    <Turnstile
+      siteKey="1x00000000000000000000AA"
+      options={{
+        refreshExpired: 'auto' // default behavior
+      }}
+      onExpire={() => console.log('Token expired, refreshing...')}
+      onSuccess={(token) => console.log('New token:', token)}
+    />
+  )
+}
+```
+
+<Tip>
+  With `refreshExpired: 'auto'`, the widget automatically attempts to get a new token when the current one expires.
+</Tip>
+
+## Manual Refresh
+
+Prompt the user to manually refresh:
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+
+function MyForm() {
+  return (
+    <Turnstile
+      siteKey="1x00000000000000000000AA"
+      options={{
+        refreshExpired: 'manual'
+      }}
+      onExpire={() => {
+        console.log('Token expired. User must click to refresh.')
+      }}
+    />
+  )
+}
+```
+
+<Note>
+  When set to `'manual'`, a refresh button appears in the widget for the user to click.
+</Note>
+
+## Never Refresh
+
+Disable automatic refresh entirely:
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+
+function MyForm() {
+  return (
+    <Turnstile
+      siteKey="1x00000000000000000000AA"
+      options={{
+        refreshExpired: 'never'
+      }}
+      onExpire={() => {
+        console.log('Token expired. Widget will not refresh.')
+      }}
+    />
+  )
+}
+```
+
+<Warning>
+  With `'never'`, you must manually reset or remove the widget when the token expires.
+</Warning>
+
+## Tracking Expiration State
+
+Track token validity in your component state:
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+import { useState } from 'react'
+
+function MyForm() {
+  const [token, setToken] = useState<string>()
+  const [isExpired, setIsExpired] = useState(false)
+
+  return (
+    <form>
+      <Turnstile
+        siteKey="1x00000000000000000000AA"
+        onSuccess={(token) => {
+          setToken(token)
+          setIsExpired(false)
+        }}
+        onExpire={() => {
+          setToken(undefined)
+          setIsExpired(true)
+        }}
+      />
+      <button type="submit" disabled={!token || isExpired}>
+        Submit
+      </button>
+      {isExpired && <p>Verification expired. Please verify again.</p>}
+    </form>
+  )
+}
+```
+
+## Programmatic Expiration Check
+
+Check if a token is expired using refs:
+
+```tsx
+import { Turnstile, TurnstileInstance } from '@marsidev/react-turnstile'
+import { useRef } from 'react'
+
+function MyForm() {
+  const turnstileRef = useRef<TurnstileInstance>(null)
+
+  const handleSubmit = () => {
+    const expired = turnstileRef.current?.isExpired()
+    
+    if (expired) {
+      alert('Verification has expired. Please verify again.')
+      turnstileRef.current?.reset()
+      return
+    }
+
+    const token = turnstileRef.current?.getResponse()
+    // Submit with token
+  }
+
+  return (
+    <form>
+      <Turnstile
+        ref={turnstileRef}
+        siteKey="1x00000000000000000000AA"
+      />
+      <button type="button" onClick={handleSubmit}>
+        Submit
+      </button>
+    </form>
+  )
+}
+```
+
+## Auto-Reset on Expiration
+
+Automatically reset the widget when the token expires:
+
+```tsx
+import { Turnstile, TurnstileInstance } from '@marsidev/react-turnstile'
+import { useRef } from 'react'
+
+function MyForm() {
+  const turnstileRef = useRef<TurnstileInstance>(null)
+
+  return (
+    <Turnstile
+      ref={turnstileRef}
+      siteKey="1x00000000000000000000AA"
+      options={{
+        refreshExpired: 'never'
+      }}
+      onExpire={() => {
+        console.log('Token expired, resetting widget')
+        turnstileRef.current?.reset()
+      }}
+    />
+  )
+}
+```
+
+## Handling Timeout
+
+Handle widget timeout (different from expiration):
+
+```tsx
+import { Turnstile, TurnstileInstance } from '@marsidev/react-turnstile'
+import { useRef, useState } from 'react'
+
+function MyForm() {
+  const turnstileRef = useRef<TurnstileInstance>(null)
+  const [status, setStatus] = useState<string>('idle')
+
+  return (
+    <form>
+      <Turnstile
+        ref={turnstileRef}
+        siteKey="1x00000000000000000000AA"
+        options={{
+          refreshTimeout: 'auto' // or 'manual', 'never'
+        }}
+        onTimeout={() => {
+          console.log('Widget timed out')
+          setStatus('timeout')
+          // Auto-retry or prompt user
+          setTimeout(() => {
+            turnstileRef.current?.reset()
+            setStatus('idle')
+          }, 1000)
+        }}
+        onExpire={() => {
+          console.log('Token expired')
+          setStatus('expired')
+        }}
+      />
+      <p>Status: {status}</p>
+    </form>
+  )
+}
+```
+
+## Complete Example
+
+A production-ready example handling all expiration scenarios:
+
+```tsx
+import { Turnstile, TurnstileInstance } from '@marsidev/react-turnstile'
+import { useRef, useState, useEffect } from 'react'
+
+function ProductionForm() {
+  const turnstileRef = useRef<TurnstileInstance>(null)
+  const [token, setToken] = useState<string>()
+  const [status, setStatus] = useState<'idle' | 'valid' | 'expired' | 'timeout'>('idle')
+  const [expirationTimer, setExpirationTimer] = useState<NodeJS.Timeout>()
+
+  // Clear timer on unmount
+  useEffect(() => {
+    return () => {
+      if (expirationTimer) clearTimeout(expirationTimer)
+    }
+  }, [expirationTimer])
+
+  const handleSuccess = (newToken: string) => {
+    setToken(newToken)
+    setStatus('valid')
+
+    // Clear existing timer
+    if (expirationTimer) clearTimeout(expirationTimer)
+
+    // Set expiration warning (e.g., 4.5 minutes)
+    const timer = setTimeout(() => {
+      console.warn('Token will expire soon')
+    }, 4.5 * 60 * 1000)
+
+    setExpirationTimer(timer)
+  }
+
+  const handleExpire = () => {
+    console.log('Token expired')
+    setToken(undefined)
+    setStatus('expired')
+    if (expirationTimer) clearTimeout(expirationTimer)
+  }
+
+  const handleTimeout = () => {
+    console.log('Widget timed out')
+    setStatus('timeout')
+    // Auto-retry after 2 seconds
+    setTimeout(() => {
+      turnstileRef.current?.reset()
+      setStatus('idle')
+    }, 2000)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // Double-check expiration before submit
+    if (turnstileRef.current?.isExpired()) {
+      alert('Verification expired. Please verify again.')
+      turnstileRef.current?.reset()
+      return
+    }
+
+    if (!token) {
+      alert('Please complete the verification')
+      return
+    }
+
+    try {
+      const response = await fetch('/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      })
+
+      if (response.ok) {
+        alert('Success!')
+      } else {
+        const data = await response.json()
+        if (data.error === 'token-expired') {
+          alert('Token expired during submission. Please try again.')
+          turnstileRef.current?.reset()
+        }
+      }
+    } catch (error) {
+      console.error('Submission error:', error)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input type="email" required />
+      <Turnstile
+        ref={turnstileRef}
+        siteKey="1x00000000000000000000AA"
+        options={{
+          refreshExpired: 'auto',
+          refreshTimeout: 'auto'
+        }}
+        onSuccess={handleSuccess}
+        onExpire={handleExpire}
+        onTimeout={handleTimeout}
+      />
+      <button type="submit" disabled={status !== 'valid'}>
+        Submit
+      </button>
+      <div>
+        Status:
+        {status === 'idle' && ' Waiting for verification'}
+        {status === 'valid' && ' ✓ Verified'}
+        {status === 'expired' && ' ⚠ Expired - Refreshing...'}
+        {status === 'timeout' && ' ⏱ Timeout - Retrying...'}
+      </div>
+    </form>
+  )
+}
+```
+
+## Refresh Options Summary
+
+| Option | Behavior | Use Case |
+|--------|----------|----------|
+| `'auto'` | Automatic refresh | Most forms (recommended) |
+| `'manual'` | User clicks to refresh | High-security scenarios |
+| `'never'` | No refresh | Custom expiration handling |
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Auto Refresh" icon="rotate">
+    For most cases, use `refreshExpired: 'auto'` for better UX
+  </Card>
+  <Card title="Track State" icon="database">
+    Clear token state in `onExpire` callback
+  </Card>
+  <Card title="Validate Before Submit" icon="shield-check">
+    Check `isExpired()` before form submission
+  </Card>
+  <Card title="Handle Server Errors" icon="server">
+    Reset widget if server reports expired token
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Server Validation" icon="server" href="/guides/server-validation">
+    Validate tokens on your server
+  </Card>
+  <Card title="Widget Lifecycle" icon="circle-nodes" href="/core-concepts/widget-lifecycle">
+    Understand the complete lifecycle
+  </Card>
+  <Card title="Render Options API" icon="code" href="/api/render-options">
+    View all refresh options
+  </Card>
+</CardGroup>

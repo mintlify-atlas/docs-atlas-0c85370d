@@ -1,0 +1,323 @@
+---
+title: 'Constants'
+description: 'Exported constants and type definitions'
+icon: 'hashtag'
+---
+
+## Script Constants
+
+These constants are exported from `@marsidev/react-turnstile` and can be used when manually managing the Turnstile script.
+
+### SCRIPT_URL
+
+```tsx
+export const SCRIPT_URL = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+```
+
+The URL of the Cloudflare Turnstile API script.
+
+**Usage:**
+```tsx
+import { SCRIPT_URL } from '@marsidev/react-turnstile'
+
+console.log(SCRIPT_URL)
+// 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+```
+
+---
+
+### DEFAULT_SCRIPT_ID
+
+```tsx
+export const DEFAULT_SCRIPT_ID = 'cf-turnstile-script'
+```
+
+The default ID attribute for the injected script element.
+
+**Usage:**
+```tsx
+import { DEFAULT_SCRIPT_ID } from '@marsidev/react-turnstile'
+
+const scriptElement = document.getElementById(DEFAULT_SCRIPT_ID)
+```
+
+---
+
+### DEFAULT_CONTAINER_ID
+
+```tsx
+export const DEFAULT_CONTAINER_ID = 'cf-turnstile'
+```
+
+The default ID attribute for the Turnstile widget container.
+
+**Usage:**
+```tsx
+import { DEFAULT_CONTAINER_ID } from '@marsidev/react-turnstile'
+
+const container = document.getElementById(DEFAULT_CONTAINER_ID)
+```
+
+---
+
+### DEFAULT_ONLOAD_NAME
+
+```tsx
+export const DEFAULT_ONLOAD_NAME = 'onloadTurnstileCallback'
+```
+
+The default name for the global onload callback function.
+
+**Usage:**
+```tsx
+import { DEFAULT_ONLOAD_NAME } from '@marsidev/react-turnstile'
+
+// The callback is registered as:
+window[DEFAULT_ONLOAD_NAME] = () => {
+  console.log('Turnstile loaded')
+}
+```
+
+## Type Definitions
+
+### Theme Types
+
+```tsx
+type TurnstileTheme = 'auto' | 'light' | 'dark'
+```
+
+The theme of the Turnstile widget:
+- `'auto'`: Respects user's system preference (default)
+- `'light'`: Light theme
+- `'dark'`: Dark theme
+
+---
+
+### Widget Size Types
+
+```tsx
+type WidgetSize = 'normal' | 'compact' | 'flexible' | 'invisible'
+```
+
+The size of the Turnstile widget:
+- `'normal'`: 300x65px (default)
+- `'compact'`: 150x140px
+- `'flexible'`: 100% width (min: 300px) x 65px
+- `'invisible'`: No visible widget
+
+---
+
+### Appearance Mode Types
+
+```tsx
+type AppearanceMode = 'always' | 'execute' | 'interaction-only'
+```
+
+Controls when the widget is visible:
+- `'always'`: Always visible (default)
+- `'execute'`: Only visible when executing
+- `'interaction-only'`: Only visible when interactivity is required
+
+---
+
+### Execution Mode Types
+
+```tsx
+type ExecutionMode = 'render' | 'execute'
+```
+
+Controls when to obtain the token:
+- `'render'`: Obtains token on render (default)
+- `'execute'`: Obtains token when `.execute()` is called
+
+---
+
+### Retry Mode Types
+
+```tsx
+type FailureRetryMode = 'never' | 'auto'
+```
+
+How to retry on widget failure:
+- `'auto'`: Automatically allows retry (default)
+- `'never'`: Never allows retry
+
+---
+
+### Refresh Mode Types
+
+```tsx
+type RefreshExpiredMode = 'never' | 'manual' | 'auto'
+type RefreshTimeoutMode = 'never' | 'manual' | 'auto'
+```
+
+The refresh mode when token expires or widget times out:
+- `'auto'`: Automatically refresh (default)
+- `'manual'`: Prompt user with refresh button
+- `'never'`: Never refresh
+
+## Supported Languages
+
+### TurnstileLangCode
+
+```tsx
+type TurnstileLangCode =
+  | 'ar' | 'ar-EG'
+  | 'cs'
+  | 'da'
+  | 'de'
+  | 'el'
+  | 'en'
+  | 'es'
+  | 'fa'
+  | 'fi'
+  | 'fr'
+  | 'he'
+  | 'hi'
+  | 'hr'
+  | 'hu'
+  | 'id'
+  | 'it'
+  | 'ja'
+  | 'ko'
+  | 'lt'
+  | 'nl'
+  | 'ms'
+  | 'nb'
+  | 'pl'
+  | 'pt' | 'pt-BR'
+  | 'ro'
+  | 'ru'
+  | 'sk'
+  | 'sl'
+  | 'sr'
+  | 'sv'
+  | 'th'
+  | 'tl'
+  | 'tlh'
+  | 'tr'
+  | 'uk'
+  | 'zh' | 'zh-CN' | 'zh-TW'
+  | (string & {}) // Allows custom strings
+```
+
+Supported language codes for the Turnstile widget. The type also accepts any string for potential future languages.
+
+**Common Languages:**
+- `'en'`: English
+- `'es'`: Spanish
+- `'fr'`: French
+- `'de'`: German
+- `'ja'`: Japanese
+- `'zh-CN'`: Chinese (Simplified)
+- `'zh-TW'`: Chinese (Traditional)
+- `'pt-BR'`: Portuguese (Brazil)
+- `'ar'`: Arabic
+- `'hi'`: Hindi
+- `'ru'`: Russian
+
+**Usage:**
+```tsx
+<Turnstile
+  siteKey="your-site-key"
+  options={{ language: 'es' }}
+/>
+```
+
+See the [Cloudflare documentation](https://developers.cloudflare.com/turnstile/reference/supported-languages/) for the complete list of supported languages.
+
+## Container Style Constants
+
+These constants are used internally but can be referenced:
+
+```tsx
+const CONTAINER_STYLE_SET = {
+  normal: {
+    width: 300,
+    height: 65
+  },
+  compact: {
+    width: 150,
+    height: 140
+  },
+  invisible: {
+    width: 0,
+    height: 0,
+    overflow: 'hidden'
+  },
+  flexible: {
+    minWidth: 300,
+    width: '100%',
+    height: 65
+  },
+  interactionOnly: {
+    width: 'fit-content',
+    height: 'auto',
+    display: 'flex'
+  }
+}
+```
+
+## Import Examples
+
+### Import Constants
+
+```tsx
+import {
+  SCRIPT_URL,
+  DEFAULT_SCRIPT_ID,
+  DEFAULT_CONTAINER_ID,
+  DEFAULT_ONLOAD_NAME
+} from '@marsidev/react-turnstile'
+```
+
+### Import Types
+
+```tsx
+import type {
+  TurnstileTheme,
+  WidgetSize,
+  AppearanceMode,
+  ExecutionMode,
+  FailureRetryMode,
+  RefreshExpiredMode,
+  RefreshTimeoutMode,
+  TurnstileLangCode
+} from '@marsidev/react-turnstile'
+```
+
+### Import All Exports
+
+```tsx
+import Turnstile, {
+  // Component types
+  TurnstileProps,
+  TurnstileInstance,
+  ComponentRenderOptions,
+  ScriptOptions,
+  
+  // Server validation types
+  TurnstileServerValidationResponse,
+  TurnstileServerValidationErrorCode,
+  
+  // Enums and constants
+  TurnstileTheme,
+  WidgetSize,
+  AppearanceMode,
+  ExecutionMode,
+  TurnstileLangCode,
+  
+  // Constants
+  SCRIPT_URL,
+  DEFAULT_SCRIPT_ID,
+  DEFAULT_CONTAINER_ID,
+  DEFAULT_ONLOAD_NAME
+} from '@marsidev/react-turnstile'
+```
+
+## Related Types
+
+- [TurnstileProps](/api/turnstile-props) - Component props
+- [ComponentRenderOptions](/api/render-options) - Render options
+- [ScriptOptions](/api/script-options) - Script options
+- [Server Validation](/api/server-validation) - Validation types

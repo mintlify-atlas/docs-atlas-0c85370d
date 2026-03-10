@@ -1,0 +1,286 @@
+---
+title: Multiple Widgets
+description: Learn how to use multiple Turnstile widgets on a single page.
+---
+
+## Overview
+
+React Turnstile supports rendering multiple widget instances on the same page. Each widget operates independently with its own state and callbacks.
+
+## Basic Multiple Widgets
+
+Simply render multiple `<Turnstile>` components with unique `id` props:
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+
+function MultipleWidgets() {
+  return (
+    <div>
+      <h2>Form 1</h2>
+      <Turnstile
+        id="widget-1"
+        siteKey="1x00000000000000000000AA"
+        onSuccess={(token) => console.log('Widget 1:', token)}
+      />
+
+      <h2>Form 2</h2>
+      <Turnstile
+        id="widget-2"
+        siteKey="1x00000000000000000000AA"
+        onSuccess={(token) => console.log('Widget 2:', token)}
+      />
+    </div>
+  )
+}
+```
+
+<Note>
+  Each widget must have a unique `id` prop to ensure proper rendering and cleanup.
+</Note>
+
+## Managing Multiple Tokens
+
+Track tokens from multiple widgets:
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+import { useState } from 'react'
+
+function MultipleFormsPage() {
+  const [tokens, setTokens] = useState<Record<string, string>>({})
+
+  const handleSuccess = (widgetId: string) => (token: string) => {
+    setTokens(prev => ({ ...prev, [widgetId]: token }))
+  }
+
+  const submitForm1 = () => {
+    if (!tokens['widget-1']) {
+      alert('Please complete verification for Form 1')
+      return
+    }
+    // Submit form 1 with tokens['widget-1']
+  }
+
+  const submitForm2 = () => {
+    if (!tokens['widget-2']) {
+      alert('Please complete verification for Form 2')
+      return
+    }
+    // Submit form 2 with tokens['widget-2']
+  }
+
+  return (
+    <div>
+      <form onSubmit={(e) => { e.preventDefault(); submitForm1() }}>
+        <h2>Login Form</h2>
+        <input type="email" placeholder="Email" />
+        <input type="password" placeholder="Password" />
+        <Turnstile
+          id="widget-1"
+          siteKey="1x00000000000000000000AA"
+          onSuccess={handleSuccess('widget-1')}
+        />
+        <button type="submit" disabled={!tokens['widget-1']}>
+          Login
+        </button>
+      </form>
+
+      <form onSubmit={(e) => { e.preventDefault(); submitForm2() }}>
+        <h2>Signup Form</h2>
+        <input type="email" placeholder="Email" />
+        <input type="password" placeholder="Password" />
+        <Turnstile
+          id="widget-2"
+          siteKey="1x00000000000000000000AA"
+          onSuccess={handleSuccess('widget-2')}
+        />
+        <button type="submit" disabled={!tokens['widget-2']}>
+          Sign Up
+        </button>
+      </form>
+    </div>
+  )
+}
+```
+
+## Using Refs with Multiple Widgets
+
+Control multiple widgets programmatically:
+
+```tsx
+import { Turnstile, TurnstileInstance } from '@marsidev/react-turnstile'
+import { useRef } from 'react'
+
+function WidgetControls() {
+  const widget1Ref = useRef<TurnstileInstance>(null)
+  const widget2Ref = useRef<TurnstileInstance>(null)
+
+  const resetAll = () => {
+    widget1Ref.current?.reset()
+    widget2Ref.current?.reset()
+  }
+
+  const getTokens = async () => {
+    const token1 = widget1Ref.current?.getResponse()
+    const token2 = widget2Ref.current?.getResponse()
+    console.log({ token1, token2 })
+  }
+
+  return (
+    <div>
+      <Turnstile
+        ref={widget1Ref}
+        id="widget-1"
+        siteKey="1x00000000000000000000AA"
+      />
+      <Turnstile
+        ref={widget2Ref}
+        id="widget-2"
+        siteKey="1x00000000000000000000AA"
+      />
+      <button onClick={resetAll}>Reset All Widgets</button>
+      <button onClick={getTokens}>Get All Tokens</button>
+    </div>
+  )
+}
+```
+
+## Different Configurations
+
+Each widget can have different settings:
+
+```tsx
+<div>
+  {/* Invisible widget for automated forms */}
+  <Turnstile
+    id="invisible-widget"
+    siteKey="1x00000000000000000000AA"
+    options={{
+      size: 'invisible',
+      execution: 'execute'
+    }}
+  />
+
+  {/* Visible compact widget */}
+  <Turnstile
+    id="compact-widget"
+    siteKey="1x00000000000000000000AA"
+    options={{
+      size: 'compact',
+      theme: 'dark'
+    }}
+  />
+
+  {/* Normal widget with custom language */}
+  <Turnstile
+    id="normal-widget"
+    siteKey="1x00000000000000000000AA"
+    options={{
+      size: 'normal',
+      language: 'es'
+    }}
+  />
+</div>
+```
+
+## Script Injection with Multiple Widgets
+
+By default, the Turnstile script is injected automatically and shared across all widgets. You only need to inject it once:
+
+```tsx
+function App() {
+  return (
+    <div>
+      {/* First widget injects the script */}
+      <Turnstile
+        id="widget-1"
+        siteKey="1x00000000000000000000AA"
+        injectScript={true}
+      />
+
+      {/* Subsequent widgets reuse the same script */}
+      <Turnstile
+        id="widget-2"
+        siteKey="1x00000000000000000000AA"
+        injectScript={false}
+      />
+    </div>
+  )
+}
+```
+
+<Tip>
+  The script is automatically shared, so you can set `injectScript={true}` on all widgets or just the first one. The library handles script loading efficiently.
+</Tip>
+
+## Conditional Rendering
+
+Handle widgets that are conditionally rendered:
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+import { useState } from 'react'
+
+function ConditionalWidgets() {
+  const [showWidget1, setShowWidget1] = useState(true)
+  const [showWidget2, setShowWidget2] = useState(false)
+
+  return (
+    <div>
+      <button onClick={() => setShowWidget1(!showWidget1)}>
+        Toggle Widget 1
+      </button>
+      <button onClick={() => setShowWidget2(!showWidget2)}>
+        Toggle Widget 2
+      </button>
+
+      {showWidget1 && (
+        <Turnstile
+          id="widget-1"
+          siteKey="1x00000000000000000000AA"
+        />
+      )}
+
+      {showWidget2 && (
+        <Turnstile
+          id="widget-2"
+          siteKey="1x00000000000000000000AA"
+        />
+      )}
+    </div>
+  )
+}
+```
+
+<Warning>
+  When a widget is unmounted, it's automatically cleaned up. If you remount it, a new widget instance will be created.
+</Warning>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Unique IDs" icon="fingerprint">
+    Always provide a unique `id` prop for each widget instance
+  </Card>
+  <Card title="Script Management" icon="code">
+    Let the first widget inject the script, others will reuse it
+  </Card>
+  <Card title="Token Tracking" icon="database">
+    Use an object or Map to track tokens by widget ID
+  </Card>
+  <Card title="Cleanup" icon="trash">
+    Widgets are automatically cleaned up on unmount
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Interact with Widget" icon="hand-pointer" href="/guides/interact-with-widget">
+    Learn about imperative widget control
+  </Card>
+  <Card title="Manual Script Injection" icon="code" href="/guides/manual-script-injection">
+    Take control of script loading
+  </Card>
+</CardGroup>

@@ -1,0 +1,83 @@
+---
+title: 'Turnstile Component'
+description: 'Main React component for rendering Cloudflare Turnstile widgets'
+icon: 'puzzle-piece'
+---
+
+## Overview
+
+The `<Turnstile />` component is the primary export of `@marsidev/react-turnstile`. It renders a Cloudflare Turnstile widget in your React application.
+
+## Import
+
+```tsx
+import Turnstile from '@marsidev/react-turnstile'
+// or
+import { Turnstile } from '@marsidev/react-turnstile'
+```
+
+## Component Signature
+
+```tsx
+const Turnstile = forwardRef<TurnstileInstance | undefined, TurnstileProps>(
+  (props, ref) => { /* ... */ }
+)
+```
+
+## Props
+
+The component accepts all props defined in the [`TurnstileProps`](/api/turnstile-props) interface, which extends `React.HTMLAttributes<HTMLDivElement>`.
+
+See the [Turnstile Props](/api/turnstile-props) reference for complete documentation of all available props.
+
+## Ref Methods
+
+When using `useRef` or `createRef`, you gain access to imperative methods via the [`TurnstileInstance`](/api/turnstile-instance) interface.
+
+See the [Turnstile Instance](/api/turnstile-instance) reference for all available methods.
+
+## Basic Usage
+
+```tsx
+import Turnstile from '@marsidev/react-turnstile'
+
+function MyForm() {
+  return (
+    <form>
+      <Turnstile siteKey="your-site-key" />
+      <button type="submit">Submit</button>
+    </form>
+  )
+}
+```
+
+## With Ref
+
+```tsx
+import { useRef } from 'react'
+import Turnstile from '@marsidev/react-turnstile'
+import type { TurnstileInstance } from '@marsidev/react-turnstile'
+
+function MyForm() {
+  const turnstileRef = useRef<TurnstileInstance>(null)
+
+  const handleSubmit = async () => {
+    const token = await turnstileRef.current?.getResponsePromise()
+    // Validate token on your server
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <Turnstile ref={turnstileRef} siteKey="your-site-key" />
+      <button type="submit">Submit</button>
+    </form>
+  )
+}
+```
+
+## Related Types
+
+- [TurnstileProps](/api/turnstile-props) - Component props interface
+- [TurnstileInstance](/api/turnstile-instance) - Ref methods interface
+- [ComponentRenderOptions](/api/render-options) - Widget render options
+- [ScriptOptions](/api/script-options) - Script injection options

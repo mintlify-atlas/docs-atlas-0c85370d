@@ -1,0 +1,389 @@
+---
+title: TypeScript Usage
+description: Full TypeScript support and type definitions for React Turnstile
+---
+
+React Turnstile is built with TypeScript and provides comprehensive type definitions out of the box.
+
+## Component Props
+
+The `<Turnstile />` component is fully typed:
+
+```tsx
+import { Turnstile, type TurnstileProps } from '@marsidev/react-turnstile'
+
+const props: TurnstileProps = {
+  siteKey: '1x00000000000000000000AA',
+  options: {
+    theme: 'dark',
+    size: 'compact',
+  },
+  onSuccess: (token) => {
+    console.log('Token:', token)
+  },
+}
+
+export default function Form() {
+  return <Turnstile {...props} />
+}
+```
+
+## Typing the Ref
+
+Use `TurnstileInstance` to type the ref:
+
+```tsx
+import { useRef } from 'react'
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
+
+export default function Form() {
+  const turnstileRef = useRef<TurnstileInstance>(null)
+
+  const handleSubmit = () => {
+    const token = turnstileRef.current?.getResponse()
+    if (token) {
+      console.log('Token:', token)
+    } else {
+      console.log('No token available')
+    }
+  }
+
+  return (
+    <div>
+      <Turnstile
+        ref={turnstileRef}
+        siteKey="1x00000000000000000000AA"
+      />
+      <button onClick={handleSubmit}>Submit</button>
+    </div>
+  )
+}
+```
+
+## Event Handler Types
+
+All event handlers are fully typed:
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+
+export default function Form() {
+  // token parameter is typed as string
+  const handleSuccess = (token: string) => {
+    console.log('Success:', token)
+  }
+
+  // errorCode is typed as string
+  const handleError = (errorCode: string) => {
+    console.error('Error:', errorCode)
+  }
+
+  return (
+    <Turnstile
+      siteKey="1x00000000000000000000AA"
+      onSuccess={handleSuccess}
+      onError={handleError}
+    />
+  )
+}
+```
+
+## Render Options Types
+
+The `options` prop is fully typed with `ComponentRenderOptions`:
+
+```tsx
+import { Turnstile, type ComponentRenderOptions } from '@marsidev/react-turnstile'
+
+const renderOptions: ComponentRenderOptions = {
+  theme: 'light',
+  size: 'normal',
+  tabIndex: 0,
+  language: 'en',
+  appearance: 'always',
+  execution: 'render',
+  retry: 'auto',
+  retryInterval: 8000,
+  refreshExpired: 'auto',
+  refreshTimeout: 'auto',
+  responseField: true,
+  responseFieldName: 'cf-turnstile-response',
+  feedbackEnabled: true,
+}
+
+export default function Form() {
+  return (
+    <Turnstile
+      siteKey="1x00000000000000000000AA"
+      options={renderOptions}
+    />
+  )
+}
+```
+
+## Script Options Types
+
+Customize the injected script with fully typed options:
+
+```tsx
+import { Turnstile, type ScriptOptions } from '@marsidev/react-turnstile'
+
+const scriptOptions: ScriptOptions = {
+  nonce: 'random-nonce',
+  defer: true,
+  async: true,
+  appendTo: 'head',
+  id: 'custom-turnstile-script',
+  onLoadCallbackName: 'onTurnstileLoad',
+  onError: () => console.error('Script failed to load'),
+  crossOrigin: 'anonymous',
+}
+
+export default function Form() {
+  return (
+    <Turnstile
+      siteKey="1x00000000000000000000AA"
+      scriptOptions={scriptOptions}
+    />
+  )
+}
+```
+
+## Language Codes
+
+Use the `TurnstileLangCode` type for language options:
+
+```tsx
+import { Turnstile, type TurnstileLangCode } from '@marsidev/react-turnstile'
+import { useState } from 'react'
+
+export default function MultiLanguageForm() {
+  const [language, setLanguage] = useState<TurnstileLangCode>('en')
+
+  return (
+    <div>
+      <select 
+        value={language} 
+        onChange={(e) => setLanguage(e.target.value as TurnstileLangCode)}
+      >
+        <option value="en">English</option>
+        <option value="es">Spanish</option>
+        <option value="fr">French</option>
+        <option value="de">German</option>
+        <option value="ja">Japanese</option>
+        <option value="zh-CN">Chinese (Simplified)</option>
+      </select>
+
+      <Turnstile
+        siteKey="1x00000000000000000000AA"
+        options={{ language }}
+      />
+    </div>
+  )
+}
+```
+
+## Server Validation Types
+
+Type the server-side validation response:
+
+```tsx
+import type { TurnstileServerValidationResponse } from '@marsidev/react-turnstile'
+
+async function verifyToken(token: string): Promise<boolean> {
+  const response = await fetch('/api/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  })
+
+  const data: TurnstileServerValidationResponse = await response.json()
+  
+  if (!data.success) {
+    console.error('Validation failed:', data['error-codes'])
+    return false
+  }
+
+  console.log('Challenge timestamp:', data.challenge_ts)
+  console.log('Hostname:', data.hostname)
+  console.log('Action:', data.action)
+  console.log('Custom data:', data.cdata)
+  
+  return true
+}
+```
+
+## Error Codes
+
+Type server validation error codes:
+
+```tsx
+import type { 
+  TurnstileServerValidationResponse,
+  TurnstileServerValidationErrorCode 
+} from '@marsidev/react-turnstile'
+
+function handleValidationError(errorCode: TurnstileServerValidationErrorCode) {
+  const messages: Record<TurnstileServerValidationErrorCode, string> = {
+    'missing-input-secret': 'Server configuration error',
+    'invalid-input-secret': 'Invalid secret key',
+    'missing-input-response': 'No token provided',
+    'invalid-input-response': 'Invalid or expired token',
+    'invalid-widget-id': 'Widget configuration error',
+    'invalid-parsed-secret': 'Secret key parsing error',
+    'bad-request': 'Malformed request',
+    'timeout-or-duplicate': 'Token already used or expired',
+    'internal-error': 'Cloudflare internal error',
+  }
+
+  return messages[errorCode] || 'Unknown error'
+}
+```
+
+## Type Assertion Patterns
+
+When working with form data:
+
+```tsx
+import { useRef, type FormEvent } from 'react'
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
+
+export default function ContactForm() {
+  const turnstileRef = useRef<TurnstileInstance>(null)
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    
+    const token = turnstileRef.current?.getResponse()
+    
+    if (!token) {
+      alert('Please complete the security check')
+      return
+    }
+
+    const formData = new FormData(e.currentTarget)
+    const data = {
+      email: formData.get('email') as string,
+      message: formData.get('message') as string,
+      token,
+    }
+
+    // Submit to API
+    await fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input name="email" type="email" required />
+      <textarea name="message" required />
+      <Turnstile
+        ref={turnstileRef}
+        siteKey="1x00000000000000000000AA"
+      />
+      <button type="submit">Send</button>
+    </form>
+  )
+}
+```
+
+## Using with useCallback
+
+When using `rerenderOnCallbackChange`, wrap handlers with `useCallback`:
+
+```tsx
+import { useCallback, useState } from 'react'
+import { Turnstile } from '@marsidev/react-turnstile'
+
+export default function Form() {
+  const [token, setToken] = useState<string | null>(null)
+
+  const handleSuccess = useCallback((token: string) => {
+    console.log('Token received:', token)
+    setToken(token)
+  }, [])
+
+  const handleError = useCallback((errorCode: string) => {
+    console.error('Error:', errorCode)
+    setToken(null)
+  }, [])
+
+  return (
+    <Turnstile
+      siteKey="1x00000000000000000000AA"
+      rerenderOnCallbackChange={true}
+      onSuccess={handleSuccess}
+      onError={handleError}
+    />
+  )
+}
+```
+
+## Extending Types
+
+Create custom types based on Turnstile types:
+
+```tsx
+import type { TurnstileProps, ComponentRenderOptions } from '@marsidev/react-turnstile'
+
+interface CustomTurnstileProps extends Omit<TurnstileProps, 'siteKey'> {
+  environment: 'production' | 'development'
+}
+
+function getConfigForEnvironment(env: 'production' | 'development'): ComponentRenderOptions {
+  return {
+    theme: env === 'production' ? 'auto' : 'light',
+    size: env === 'production' ? 'normal' : 'compact',
+  }
+}
+
+export default function CustomTurnstile({ environment, ...props }: CustomTurnstileProps) {
+  const siteKey = environment === 'production' 
+    ? process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!
+    : '1x00000000000000000000AA' // Test key
+
+  return (
+    <Turnstile
+      siteKey={siteKey}
+      options={getConfigForEnvironment(environment)}
+      {...props}
+    />
+  )
+}
+```
+
+## Type Guards
+
+Create type guards for runtime checks:
+
+```tsx
+import type { TurnstileServerValidationResponse } from '@marsidev/react-turnstile'
+
+function isValidationSuccess(
+  response: TurnstileServerValidationResponse
+): response is TurnstileServerValidationResponse & { success: true } {
+  return response.success === true
+}
+
+async function validateToken(token: string) {
+  const response = await fetch('/api/verify', {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  })
+  
+  const data: TurnstileServerValidationResponse = await response.json()
+  
+  if (isValidationSuccess(data)) {
+    // TypeScript knows success is true here
+    console.log('Valid token from:', data.hostname)
+    return true
+  } else {
+    // TypeScript knows success is false here
+    console.error('Validation errors:', data['error-codes'])
+    return false
+  }
+}
+```

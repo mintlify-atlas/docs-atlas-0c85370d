@@ -1,0 +1,436 @@
+---
+title: Server Validation
+description: Learn how to validate Turnstile tokens on your server to verify user authenticity.
+---
+
+## Overview
+
+After receiving a Turnstile token from your client, you must validate it on your server by making a request to Cloudflare's siteverify endpoint. **Never trust client-side verification alone.**
+
+## Why Server-Side Validation?
+
+<CardGroup cols={2}>
+  <Card title="Security" icon="shield-check">
+    Prevent token forgery and replay attacks
+  </Card>
+  <Card title="Verification" icon="badge-check">
+    Confirm the token is valid and not expired
+  </Card>
+  <Card title="Origin Check" icon="globe">
+    Verify the token was generated from your domain
+  </Card>
+  <Card title="Compliance" icon="scale-balanced">
+    Meet security and compliance requirements
+  </Card>
+</CardGroup>
+
+## Validation Endpoint
+
+Cloudflare's siteverify endpoint:
+
+```
+POST https://challenges.cloudflare.com/turnstile/v0/siteverify
+```
+
+## Request Format
+
+Send a POST request with these parameters:
+
+```json
+{
+  "secret": "YOUR_SECRET_KEY",
+  "response": "TOKEN_FROM_CLIENT",
+  "remoteip": "USER_IP_ADDRESS" // optional but recommended
+}
+```
+
+## Response Format
+
+Cloudflare returns a JSON response:
+
+```typescript
+interface TurnstileServerValidationResponse {
+  success: boolean
+  'error-codes': string[]
+  challenge_ts?: string // ISO timestamp
+  hostname?: string // Your domain
+  action?: string // Custom action if specified
+  cdata?: string // Custom data if specified
+  metadata?: {
+    interactive: boolean
+  }
+  messages?: string[]
+}
+```
+
+## Node.js / Express Example
+
+```typescript
+import express from 'express'
+
+const app = express()
+app.use(express.json())
+
+app.post('/api/verify', async (req, res) => {
+  const { token } = req.body
+
+  if (!token) {
+    return res.status(400).json({ error: 'Token is required' })
+  }
+
+  try {
+    const response = await fetch(
+      'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          secret: process.env.TURNSTILE_SECRET_KEY,
+          response: token,
+          remoteip: req.ip
+        })
+      }
+    )
+
+    const data = await response.json()
+
+    if (data.success) {
+      // Token is valid
+      return res.json({ 
+        success: true,
+        message: 'Verification successful'
+      })
+    } else {
+      // Token is invalid
+      return res.status(400).json({ 
+        success: false,
+        error: 'Verification failed',
+        errorCodes: data['error-codes']
+      })
+    }
+  } catch (error) {
+    console.error('Verification error:', error)
+    return res.status(500).json({ 
+      success: false,
+      error: 'Internal server error' 
+    })
+  }
+})
+```
+
+## Next.js API Route Example
+
+```typescript app/api/verify/route.ts
+import { NextRequest, NextResponse } from 'next/server'
+
+export async function POST(request: NextRequest) {
+  try {
+    const { token } = await request.json()
+
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Token is required' },
+        { status: 400 }
+      )
+    }
+
+    const response = await fetch(
+      'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          secret: process.env.TURNSTILE_SECRET_KEY,
+          response: token,
+          remoteip: request.ip
+        })
+      }
+    )
+
+    const data = await response.json()
+
+    if (data.success) {
+      return NextResponse.json({ 
+        success: true,
+        hostname: data.hostname,
+        challenge_ts: data.challenge_ts
+      })
+    } else {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Verification failed',
+          errorCodes: data['error-codes']
+        },
+        { status: 400 }
+      )
+    }
+  } catch (error) {
+    console.error('Verification error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+```
+
+## TypeScript Types
+
+Use the provided types for type safety:
+
+```typescript
+import type {
+  TurnstileServerValidationResponse,
+  TurnstileServerValidationErrorCode
+} from '@marsidev/react-turnstile'
+
+async function verifyToken(token: string): Promise<boolean> {
+  const response = await fetch(
+    'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        secret: process.env.TURNSTILE_SECRET_KEY,
+        response: token
+      })
+    }
+  )
+
+  const data: TurnstileServerValidationResponse = await response.json()
+  return data.success
+}
+```
+
+## Error Codes
+
+Handle specific error codes:
+
+```typescript
+const ERROR_MESSAGES: Record<TurnstileServerValidationErrorCode, string> = {
+  'missing-input-secret': 'Secret key is missing',
+  'invalid-input-secret': 'Secret key is invalid',
+  'missing-input-response': 'Token is missing',
+  'invalid-input-response': 'Token is invalid or expired',
+  'invalid-widget-id': 'Widget ID is invalid',
+  'invalid-parsed-secret': 'Secret key parsing failed',
+  'bad-request': 'Request is malformed',
+  'timeout-or-duplicate': 'Token already used or timed out',
+  'internal-error': 'Internal Cloudflare error'
+}
+
+if (!data.success) {
+  const errors = data['error-codes'].map(
+    code => ERROR_MESSAGES[code as TurnstileServerValidationErrorCode]
+  )
+  console.error('Validation errors:', errors)
+}
+```
+
+## Complete Integration
+
+Client-side form:
+
+```tsx app/contact/page.tsx
+'use client'
+
+import { Turnstile } from '@marsidev/react-turnstile'
+import { useState } from 'react'
+
+export default function ContactForm() {
+  const [token, setToken] = useState<string>()
+  const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+
+    if (!token) {
+      alert('Please complete the verification')
+      return
+    }
+
+    setStatus('submitting')
+
+    try {
+      const formData = new FormData(e.currentTarget)
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.get('email'),
+          message: formData.get('message'),
+          turnstileToken: token
+        })
+      })
+
+      if (response.ok) {
+        setStatus('success')
+      } else {
+        setStatus('error')
+      }
+    } catch (error) {
+      setStatus('error')
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input type="email" name="email" required />
+      <textarea name="message" required />
+      <Turnstile
+        siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+        onSuccess={setToken}
+      />
+      <button type="submit" disabled={!token || status === 'submitting'}>
+        {status === 'submitting' ? 'Submitting...' : 'Submit'}
+      </button>
+      {status === 'success' && <p>Message sent!</p>}
+      {status === 'error' && <p>Error sending message</p>}
+    </form>
+  )
+}
+```
+
+Server-side validation:
+
+```typescript app/api/contact/route.ts
+import { NextRequest, NextResponse } from 'next/server'
+import type { TurnstileServerValidationResponse } from '@marsidev/react-turnstile'
+
+async function verifyTurnstileToken(
+  token: string,
+  remoteip?: string
+): Promise<TurnstileServerValidationResponse> {
+  const response = await fetch(
+    'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        secret: process.env.TURNSTILE_SECRET_KEY,
+        response: token,
+        remoteip
+      })
+    }
+  )
+
+  return response.json()
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { email, message, turnstileToken } = await request.json()
+
+    // Validate Turnstile token
+    const verification = await verifyTurnstileToken(
+      turnstileToken,
+      request.ip
+    )
+
+    if (!verification.success) {
+      console.error('Turnstile verification failed:', verification['error-codes'])
+      return NextResponse.json(
+        { error: 'Verification failed' },
+        { status: 400 }
+      )
+    }
+
+    // Process the form (send email, save to database, etc.)
+    console.log('Processing contact form:', { email, message })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+```
+
+## Environment Variables
+
+<Steps>
+  <Step title="Create .env.local file">
+    ```bash .env.local
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA
+    TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
+    ```
+  </Step>
+  
+  <Step title="Add to .gitignore">
+    ```bash .gitignore
+    .env.local
+    .env
+    ```
+  </Step>
+  
+  <Step title="Set production environment variables">
+    Configure your hosting platform (Vercel, Netlify, etc.) with production keys
+  </Step>
+</Steps>
+
+<Warning>
+  **Never expose your secret key in client-side code.** Only use it on the server.
+</Warning>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Always Validate" icon="shield-check">
+    Validate every token on the server before processing requests
+  </Card>
+  <Card title="Include Remote IP" icon="location-dot">
+    Pass the user's IP address for additional verification
+  </Card>
+  <Card title="Handle Errors" icon="triangle-exclamation">
+    Gracefully handle validation failures and errors
+  </Card>
+  <Card title="Secure Secret Key" icon="key">
+    Store secret keys in environment variables, never in code
+  </Card>
+  <Card title="Check Hostname" icon="globe">
+    Verify the `hostname` field matches your domain
+  </Card>
+  <Card title="Log Failures" icon="file-lines">
+    Log failed verifications for security monitoring
+  </Card>
+</CardGroup>
+
+## Testing
+
+For testing, Cloudflare provides test keys:
+
+```bash
+# Test sitekey (always passes)
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA
+
+# Test secret (always passes)
+TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
+
+# Test sitekey (always fails)
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=2x00000000000000000000AB
+
+# Test secret (always fails)
+TURNSTILE_SECRET_KEY=2x0000000000000000000000000000000AA
+```
+
+<Note>
+  Test keys always return the same result regardless of user interaction. Use them for development and automated testing.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Server Validation API" icon="book" href="/api/server-validation">
+    View complete API reference
+  </Card>
+  <Card title="Error Handling" icon="triangle-exclamation" href="/advanced/troubleshooting">
+    Handle validation errors
+  </Card>
+  <Card title="Get Widget Token" icon="key" href="/guides/get-widget-token">
+    Learn how to retrieve tokens
+  </Card>
+</CardGroup>

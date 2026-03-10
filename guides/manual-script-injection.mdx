@@ -1,0 +1,352 @@
+---
+title: Manual Script Injection
+description: Take control of when and how the Turnstile script is loaded in your application.
+---
+
+## Overview
+
+By default, React Turnstile automatically injects the Cloudflare Turnstile script. However, you may want manual control for performance optimization, custom loading strategies, or compliance with Content Security Policies.
+
+## Disable Automatic Injection
+
+Set `injectScript={false}` to prevent automatic script injection:
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+
+function MyForm() {
+  return (
+    <Turnstile
+      siteKey="1x00000000000000000000AA"
+      injectScript={false}
+    />
+  )
+}
+```
+
+<Warning>
+  When you disable automatic injection, you're responsible for loading the Turnstile script before the component mounts.
+</Warning>
+
+## Method 1: HTML Script Tag
+
+Add the script directly to your HTML:
+
+```html index.html
+<!DOCTYPE html>
+<html>
+  <head>
+    <script
+      src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+      async
+      defer
+    ></script>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
+```
+
+Then use the component:
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+
+function MyForm() {
+  return (
+    <Turnstile
+      siteKey="1x00000000000000000000AA"
+      injectScript={false}
+    />
+  )
+}
+```
+
+## Method 2: Next.js Script Component
+
+For Next.js applications, use the built-in Script component:
+
+```tsx app/layout.tsx
+import Script from 'next/script'
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <head>
+        <Script
+          src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+          strategy="beforeInteractive"
+        />
+      </head>
+      <body>{children}</body>
+    </html>
+  )
+}
+```
+
+Then in your components:
+
+```tsx app/contact/page.tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+
+export default function ContactPage() {
+  return (
+    <form>
+      <Turnstile
+        siteKey="1x00000000000000000000AA"
+        injectScript={false}
+      />
+    </form>
+  )
+}
+```
+
+## Method 3: Custom Script Injection Hook
+
+Create a reusable hook for script loading:
+
+```tsx hooks/useTurnstileScript.ts
+import { useEffect, useState } from 'react'
+
+export function useTurnstileScript() {
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    // Check if already loaded
+    if (window.turnstile) {
+      setLoaded(true)
+      return
+    }
+
+    // Check if script already exists
+    const existingScript = document.getElementById('turnstile-script')
+    if (existingScript) {
+      existingScript.addEventListener('load', () => setLoaded(true))
+      return
+    }
+
+    // Inject script
+    const script = document.createElement('script')
+    script.id = 'turnstile-script'
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+    script.async = true
+    script.defer = true
+    script.onload = () => setLoaded(true)
+    document.head.appendChild(script)
+
+    return () => {
+      script.remove()
+    }
+  }, [])
+
+  return loaded
+}
+```
+
+Use the hook:
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+import { useTurnstileScript } from './hooks/useTurnstileScript'
+
+function MyForm() {
+  const scriptLoaded = useTurnstileScript()
+
+  if (!scriptLoaded) {
+    return <div>Loading verification...</div>
+  }
+
+  return (
+    <form>
+      <Turnstile
+        siteKey="1x00000000000000000000AA"
+        injectScript={false}
+      />
+    </form>
+  )
+}
+```
+
+## Method 4: App-Wide Script Loading
+
+Load the script once in your app root:
+
+```tsx App.tsx
+import { useEffect, useState } from 'react'
+import { Turnstile } from '@marsidev/react-turnstile'
+
+function App() {
+  const [scriptLoaded, setScriptLoaded] = useState(false)
+
+  useEffect(() => {
+    const script = document.createElement('script')
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+    script.async = true
+    script.onload = () => setScriptLoaded(true)
+    document.head.appendChild(script)
+  }, [])
+
+  return (
+    <div>
+      {scriptLoaded && (
+        <Turnstile
+          siteKey="1x00000000000000000000AA"
+          injectScript={false}
+        />
+      )}
+    </div>
+  )
+}
+```
+
+## Custom Script Options with Manual Injection
+
+When manually injecting, you can still customize script attributes:
+
+```tsx
+import { useEffect } from 'react'
+import { SCRIPT_URL } from '@marsidev/react-turnstile'
+
+function useCustomTurnstileScript() {
+  useEffect(() => {
+    const script = document.createElement('script')
+    script.src = SCRIPT_URL
+    script.async = true
+    script.defer = true
+    
+    // Custom attributes
+    script.nonce = 'your-nonce-value'
+    script.crossOrigin = 'anonymous'
+    
+    document.head.appendChild(script)
+
+    return () => script.remove()
+  }, [])
+}
+```
+
+## Script Loading Callback
+
+Get notified when the script loads:
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+
+function MyForm() {
+  return (
+    <Turnstile
+      siteKey="1x00000000000000000000AA"
+      onLoadScript={() => {
+        console.log('Turnstile script loaded!')
+      }}
+    />
+  )
+}
+```
+
+## Delayed Script Injection
+
+Load the script only when needed:
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+import { useState } from 'react'
+
+function LazyForm() {
+  const [showWidget, setShowWidget] = useState(false)
+
+  return (
+    <div>
+      <button onClick={() => setShowWidget(true)}>
+        Show Form
+      </button>
+
+      {showWidget && (
+        <form>
+          {/* Script is injected only when form is shown */}
+          <Turnstile
+            siteKey="1x00000000000000000000AA"
+            injectScript={true}
+          />
+        </form>
+      )}
+    </div>
+  )
+}
+```
+
+## CSP Compatibility
+
+For Content Security Policy compliance, use a nonce:
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+
+function MyForm({ nonce }: { nonce: string }) {
+  return (
+    <Turnstile
+      siteKey="1x00000000000000000000AA"
+      scriptOptions={{
+        nonce: nonce
+      }}
+    />
+  )
+}
+```
+
+<Note>
+  See the [Script Injection](/core-concepts/script-injection) core concept for more details on CSP configuration.
+</Note>
+
+## Troubleshooting
+
+<Accordion title="Widget not rendering">
+  Make sure the Turnstile script is fully loaded before the component mounts. You can check `window.turnstile` to verify:
+
+  ```tsx
+  useEffect(() => {
+    if (window.turnstile) {
+      console.log('Turnstile is ready')
+    } else {
+      console.log('Turnstile not loaded yet')
+    }
+  }, [])
+  ```
+</Accordion>
+
+<Accordion title="Script loaded multiple times">
+  Check that you're not injecting the script in multiple places. Use a global state manager or context to track script loading status across your app.
+</Accordion>
+
+<Accordion title="Script conflicts with automatic injection">
+  If you manually inject the script, set `injectScript={false}` on all Turnstile components to avoid loading it twice.
+</Accordion>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Single Source" icon="1">
+    Load the script from one place in your application
+  </Card>
+  <Card title="Loading State" icon="spinner">
+    Show a loading indicator while the script loads
+  </Card>
+  <Card title="Error Handling" icon="triangle-exclamation">
+    Handle script load failures gracefully
+  </Card>
+  <Card title="CSP Compliance" icon="shield-check">
+    Use nonces for strict CSP policies
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Script Injection Concept" icon="book" href="/core-concepts/script-injection">
+    Deep dive into script injection
+  </Card>
+  <Card title="Script Options API" icon="code" href="/api/script-options">
+    View all script options
+  </Card>
+</CardGroup>

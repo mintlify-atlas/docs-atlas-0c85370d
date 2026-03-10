@@ -1,80 +1,267 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get up and running with React Turnstile in minutes.
 ---
 
-## Get started in three steps
+Get started with React Turnstile by following these simple steps. You'll have a working Turnstile widget in your React application in just a few minutes.
 
-Get your documentation site running locally and make your first customization.
+<Steps>
+  <Step title="Obtain Cloudflare Turnstile Keys">
+    Before you can use React Turnstile, you need to obtain a sitekey and secret key from Cloudflare.
 
-### Step 1: Set up your local environment
+    1. Go to the [Cloudflare Dashboard](https://dash.cloudflare.com/)
+    2. Navigate to **Turnstile** in the sidebar
+    3. Click **Add Site** to create a new widget
+    4. Configure your widget settings and domain
+    5. Save your **sitekey** (for client-side) and **secret key** (for server-side validation)
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    <Note>
+      For development and testing, you can use Cloudflare's test keys:
+      - **Sitekey (always passes)**: `1x00000000000000000000AA`
+      - **Secret key (always passes)**: `1x0000000000000000000000000000000AA`
+    </Note>
+  </Step>
 
-### Step 2: Deploy your changes
+  <Step title="Install React Turnstile">
+    Install the package using your preferred package manager:
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    <CodeGroup>
+    ```bash npm
+    npm install @marsidev/react-turnstile
+    ```
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    ```bash yarn
+    yarn add @marsidev/react-turnstile
+    ```
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    ```bash pnpm
+    pnpm add @marsidev/react-turnstile
+    ```
+    </CodeGroup>
+  </Step>
 
-### Step 3: Go live
+  <Step title="Add Turnstile to Your Component">
+    Import and use the Turnstile component in your React application:
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    ```tsx App.tsx
+    import { Turnstile } from '@marsidev/react-turnstile'
 
-## Next steps
+    function App() {
+      return (
+        <div>
+          <h1>Contact Form</h1>
+          <form>
+            <input type="email" placeholder="Email" required />
+            <textarea placeholder="Message" required />
+            
+            {/* Add Turnstile widget */}
+            <Turnstile siteKey="1x00000000000000000000AA" />
+            
+            <button type="submit">Submit</button>
+          </form>
+        </div>
+      )
+    }
 
-Now that you have your docs running, explore these key features:
+    export default App
+    ```
+
+    <Tip>
+      Replace `1x00000000000000000000AA` with your actual Cloudflare Turnstile sitekey.
+    </Tip>
+  </Step>
+
+  <Step title="Handle the Verification Token">
+    Capture the token when the user completes the challenge:
+
+    ```tsx App.tsx
+    import { Turnstile } from '@marsidev/react-turnstile'
+    import { useState } from 'react'
+
+    function App() {
+      const [token, setToken] = useState<string>()
+
+      const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault()
+        
+        if (!token) {
+          alert('Please complete the verification')
+          return
+        }
+
+        console.log('Verification token:', token)
+        // Send token to your server for validation
+      }
+
+      return (
+        <form onSubmit={handleSubmit}>
+          <input type="email" placeholder="Email" required />
+          <textarea placeholder="Message" required />
+          
+          <Turnstile
+            siteKey="1x00000000000000000000AA"
+            onSuccess={(token) => {
+              console.log('Success! Token:', token)
+              setToken(token)
+            }}
+            onError={() => setToken(undefined)}
+            onExpire={() => setToken(undefined)}
+          />
+          
+          <button type="submit" disabled={!token}>
+            Submit
+          </button>
+        </form>
+      )
+    }
+    ```
+  </Step>
+
+  <Step title="Validate Token on Your Server">
+    <Warning>
+      **Always validate the token on your server.** Never trust client-side verification alone.
+    </Warning>
+
+    Send the token to your backend and verify it with Cloudflare:
+
+    ```typescript server.ts
+    async function verifyTurnstileToken(token: string) {
+      const response = await fetch(
+        'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            secret: process.env.TURNSTILE_SECRET_KEY,
+            response: token
+          })
+        }
+      )
+
+      const data = await response.json()
+      return data.success
+    }
+
+    // Example API endpoint
+    app.post('/api/submit', async (req, res) => {
+      const { token } = req.body
+
+      const isValid = await verifyTurnstileToken(token)
+
+      if (isValid) {
+        // Process the form submission
+        res.json({ success: true })
+      } else {
+        res.status(400).json({ error: 'Verification failed' })
+      }
+    })
+    ```
+
+    <Note>
+      Store your Turnstile secret key in environment variables:
+      ```bash .env
+      TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
+      ```
+    </Note>
+  </Step>
+</Steps>
+
+## What's Next?
+
+You now have a working Turnstile widget! Here are some common next steps:
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Component Props" icon="sliders" href="/core-concepts/component-props">
+    Explore all available component properties
+  </Card>
+  <Card title="Widget Lifecycle" icon="rotate" href="/core-concepts/widget-lifecycle">
+    Understand the widget lifecycle and callbacks
+  </Card>
+  <Card title="Interact with Widget" icon="hand-pointer" href="/guides/interact-with-widget">
+    Control the widget programmatically using refs
+  </Card>
+  <Card title="Server Validation" icon="shield-check" href="/guides/server-validation">
+    Learn how to validate tokens on your server
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+## Common Customizations
+
+### Theme
+
+Match the widget to your site's appearance:
+
+```tsx
+<Turnstile
+  siteKey="1x00000000000000000000AA"
+  options={{
+    theme: 'dark' // or 'light', 'auto'
+  }}
+/>
+```
+
+### Size
+
+Control the widget dimensions:
+
+```tsx
+<Turnstile
+  siteKey="1x00000000000000000000AA"
+  options={{
+    size: 'compact' // or 'normal', 'flexible'
+  }}
+/>
+```
+
+### Invisible Mode
+
+For a frictionless user experience:
+
+```tsx
+import { Turnstile, TurnstileInstance } from '@marsidev/react-turnstile'
+import { useRef } from 'react'
+
+function InvisibleForm() {
+  const turnstileRef = useRef<TurnstileInstance>(null)
+
+  const handleSubmit = async () => {
+    // Trigger the invisible challenge
+    turnstileRef.current?.execute()
+    
+    // Wait for the token
+    const token = await turnstileRef.current?.getResponsePromise()
+    console.log('Token:', token)
+  }
+
+  return (
+    <div>
+      <Turnstile
+        ref={turnstileRef}
+        siteKey="1x00000000000000000000AA"
+        options={{
+          execution: 'execute',
+          size: 'invisible'
+        }}
+      />
+      <button onClick={handleSubmit}>Submit</button>
+    </div>
+  )
+}
+```
+
+## Need Help?
+
+<CardGroup cols={2}>
+  <Card title="Troubleshooting" icon="wrench" href="/advanced/troubleshooting">
+    Common issues and solutions
+  </Card>
+  <Card title="Examples" icon="code" href="/resources/examples">
+    View real-world examples
+  </Card>
+  <Card title="GitHub" icon="github" href="https://github.com/marsidev/react-turnstile">
+    Report issues or contribute
+  </Card>
+  <Card title="Cloudflare Docs" icon="book" href="https://developers.cloudflare.com/turnstile/">
+    Official Turnstile documentation
+  </Card>
+</CardGroup>

@@ -1,0 +1,98 @@
+---
+title: Introduction
+description: Cloudflare Turnstile integration for React with TypeScript support and automatic script injection.
+---
+
+<img
+  className="block"
+  src="https://raw.githubusercontent.com/marsidev/react-turnstile/main/preview.png"
+  alt="React Turnstile Preview"
+/>
+
+## What is React Turnstile?
+
+React Turnstile is a React component library that provides seamless integration with [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/), a privacy-focused CAPTCHA alternative. It enables you to add smart verification to your React applications with minimal user interaction.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Smart Verification" icon="shield-check">
+    Minimal user interaction required for verification
+  </Card>
+  <Card title="Privacy-Focused" icon="user-shield">
+    CAPTCHA alternative that respects user privacy
+  </Card>
+  <Card title="Automatic Script Injection" icon="wand-magic-sparkles">
+    Automatically loads and manages the Turnstile script
+  </Card>
+  <Card title="SSR Ready" icon="server">
+    Full support for server-side rendering
+  </Card>
+  <Card title="TypeScript Support" icon="code">
+    Complete type definitions included
+  </Card>
+  <Card title="Imperative API" icon="hand-pointer">
+    Control widgets programmatically via refs
+  </Card>
+  <Card title="Multiple Widgets" icon="grid">
+    Support for multiple widget instances
+  </Card>
+  <Card title="Customizable" icon="palette">
+    Customize appearance and behavior
+  </Card>
+</CardGroup>
+
+## Quick Example
+
+Here's a simple example of using React Turnstile:
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+
+function MyForm() {
+  return (
+    <form>
+      <input type="email" placeholder="Email" />
+      <Turnstile siteKey="1x00000000000000000000AA" />
+      <button type="submit">Submit</button>
+    </form>
+  )
+}
+```
+
+## Get Started
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install React Turnstile in your project
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get up and running in minutes
+  </Card>
+  <Card title="API Reference" icon="book" href="/api/turnstile-component">
+    Explore the complete API
+  </Card>
+  <Card title="Examples" icon="code" href="/resources/examples">
+    View real-world examples
+  </Card>
+</CardGroup>
+
+## Why Turnstile?
+
+Cloudflare Turnstile is a CAPTCHA replacement that:
+
+- **Reduces user friction** — Most users complete verification without any interaction
+- **Protects privacy** — No personal data collection or tracking
+- **Works everywhere** — Compatible with all modern browsers
+- **Easy to integrate** — Simple setup with minimal configuration
+
+## Community & Support
+
+<CardGroup cols={2}>
+  <Card title="GitHub" icon="github" href="https://github.com/marsidev/react-turnstile">
+    View source code and report issues
+  </Card>
+  <Card title="npm" icon="npm" href="https://www.npmjs.com/package/@marsidev/react-turnstile">
+    View package on npm
+  </Card>
+</CardGroup>

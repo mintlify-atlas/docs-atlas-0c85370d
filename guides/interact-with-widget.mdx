@@ -1,0 +1,374 @@
+---
+title: Interact with Widget
+description: Control the Turnstile widget programmatically using refs and imperative methods.
+---
+
+## Overview
+
+React Turnstile provides an imperative API through refs, allowing you to programmatically control the widget. This is useful for resetting the widget, getting tokens on demand, or removing the widget entirely.
+
+## Using Refs
+
+Create a ref with the `TurnstileInstance` type:
+
+```tsx
+import { Turnstile, TurnstileInstance } from '@marsidev/react-turnstile'
+import { useRef } from 'react'
+
+function MyForm() {
+  const turnstileRef = useRef<TurnstileInstance>(null)
+
+  return (
+    <Turnstile
+      ref={turnstileRef}
+      siteKey="1x00000000000000000000AA"
+    />
+  )
+}
+```
+
+## Available Methods
+
+The `TurnstileInstance` provides these methods:
+
+### `render()`
+
+Explicitly render the widget:
+
+```tsx
+const widgetId = turnstileRef.current?.render()
+console.log('Widget ID:', widgetId)
+```
+
+<Note>
+  Normally, the widget renders automatically. Use this method only when you've removed the widget and want to re-render it.
+</Note>
+
+### `execute()`
+
+Trigger the challenge for invisible widgets:
+
+```tsx
+import { Turnstile, TurnstileInstance } from '@marsidev/react-turnstile'
+import { useRef } from 'react'
+
+function InvisibleWidget() {
+  const turnstileRef = useRef<TurnstileInstance>(null)
+
+  const handleSubmit = async () => {
+    // Trigger the invisible challenge
+    turnstileRef.current?.execute()
+    
+    // Wait for the token
+    const token = await turnstileRef.current?.getResponsePromise()
+    console.log('Token:', token)
+  }
+
+  return (
+    <div>
+      <Turnstile
+        ref={turnstileRef}
+        siteKey="1x00000000000000000000AA"
+        options={{
+          execution: 'execute',
+          size: 'invisible'
+        }}
+      />
+      <button onClick={handleSubmit}>Submit</button>
+    </div>
+  )
+}
+```
+
+### `reset()`
+
+Reset the widget to its initial state:
+
+```tsx
+import { Turnstile, TurnstileInstance } from '@marsidev/react-turnstile'
+import { useRef } from 'react'
+
+function ResettableForm() {
+  const turnstileRef = useRef<TurnstileInstance>(null)
+
+  const handleReset = () => {
+    turnstileRef.current?.reset()
+    console.log('Widget reset')
+  }
+
+  return (
+    <div>
+      <Turnstile
+        ref={turnstileRef}
+        siteKey="1x00000000000000000000AA"
+      />
+      <button onClick={handleReset}>Reset Widget</button>
+    </div>
+  )
+}
+```
+
+<Tip>
+  Use `reset()` when form submission fails and you want the user to verify again.
+</Tip>
+
+### `remove()`
+
+Completely remove the widget from the DOM:
+
+```tsx
+const handleRemove = () => {
+  turnstileRef.current?.remove()
+  console.log('Widget removed')
+}
+```
+
+<Warning>
+  After calling `remove()`, you'll need to call `render()` to show the widget again.
+</Warning>
+
+### `getResponse()`
+
+Get the current token synchronously:
+
+```tsx
+const token = turnstileRef.current?.getResponse()
+if (token) {
+  console.log('Current token:', token)
+} else {
+  console.log('No token available')
+}
+```
+
+### `getResponsePromise()`
+
+Wait for the token asynchronously:
+
+```tsx
+try {
+  const token = await turnstileRef.current?.getResponsePromise(
+    30000, // timeout in milliseconds (default: 30000)
+    250    // retry interval in milliseconds (default: 250)
+  )
+  console.log('Token:', token)
+} catch (error) {
+  console.error('Failed to get token:', error)
+}
+```
+
+<Note>
+  `getResponsePromise()` waits until the widget is solved or times out. It's useful for invisible widgets or when you need to ensure a token is available.
+</Note>
+
+### `isExpired()`
+
+Check if the current token has expired:
+
+```tsx
+const expired = turnstileRef.current?.isExpired()
+if (expired) {
+  console.log('Token has expired')
+  turnstileRef.current?.reset()
+}
+```
+
+## Complete Form Example
+
+Here's a complete example using multiple ref methods:
+
+```tsx
+import { Turnstile, TurnstileInstance } from '@marsidev/react-turnstile'
+import { useRef, useState } from 'react'
+
+function AdvancedForm() {
+  const turnstileRef = useRef<TurnstileInstance>(null)
+  const [status, setStatus] = useState<string>('idle')
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setStatus('checking')
+
+    // Check if token is expired
+    const expired = turnstileRef.current?.isExpired()
+    if (expired) {
+      setStatus('expired')
+      turnstileRef.current?.reset()
+      return
+    }
+
+    // Get the token
+    const token = turnstileRef.current?.getResponse()
+    if (!token) {
+      setStatus('no-token')
+      return
+    }
+
+    setStatus('submitting')
+
+    try {
+      const response = await fetch('/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      })
+
+      if (response.ok) {
+        setStatus('success')
+      } else {
+        setStatus('error')
+        // Reset widget on error
+        turnstileRef.current?.reset()
+      }
+    } catch (error) {
+      setStatus('error')
+      turnstileRef.current?.reset()
+    }
+  }
+
+  const handleReset = () => {
+    turnstileRef.current?.reset()
+    setStatus('idle')
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input type="email" required />
+      <Turnstile
+        ref={turnstileRef}
+        siteKey="1x00000000000000000000AA"
+        onExpire={() => setStatus('expired')}
+      />
+      <div>
+        <button type="submit">Submit</button>
+        <button type="button" onClick={handleReset}>Reset</button>
+      </div>
+      <p>Status: {status}</p>
+    </form>
+  )
+}
+```
+
+## Invisible Widget Pattern
+
+For invisible widgets, combine `execute()` and `getResponsePromise()`:
+
+```tsx
+import { Turnstile, TurnstileInstance } from '@marsidev/react-turnstile'
+import { useRef } from 'react'
+
+function InvisibleForm() {
+  const turnstileRef = useRef<TurnstileInstance>(null)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    try {
+      // Trigger the challenge
+      turnstileRef.current?.execute()
+
+      // Wait for completion
+      const token = await turnstileRef.current?.getResponsePromise()
+
+      // Submit with token
+      await fetch('/api/submit', {
+        method: 'POST',
+        body: JSON.stringify({ token })
+      })
+    } catch (error) {
+      console.error('Verification failed:', error)
+      turnstileRef.current?.reset()
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input type="email" required />
+      <Turnstile
+        ref={turnstileRef}
+        siteKey="1x00000000000000000000AA"
+        options={{
+          execution: 'execute',
+          size: 'invisible'
+        }}
+      />
+      <button type="submit">Submit</button>
+    </form>
+  )
+}
+```
+
+## Common Patterns
+
+### Auto-reset on Error
+
+```tsx
+<Turnstile
+  ref={turnstileRef}
+  siteKey="1x00000000000000000000AA"
+  onError={() => {
+    turnstileRef.current?.reset()
+  }}
+/>
+```
+
+### Token Validation Before Submit
+
+```tsx
+const handleSubmit = () => {
+  const token = turnstileRef.current?.getResponse()
+  const expired = turnstileRef.current?.isExpired()
+
+  if (!token || expired) {
+    alert('Please complete the verification')
+    return
+  }
+
+  // Proceed with submission
+}
+```
+
+### Conditional Widget Rendering
+
+```tsx
+const [showWidget, setShowWidget] = useState(false)
+
+const handleRemoveWidget = () => {
+  turnstileRef.current?.remove()
+  setShowWidget(false)
+}
+
+const handleShowWidget = () => {
+  setShowWidget(true)
+  // Widget will auto-render when mounted
+}
+```
+
+## TypeScript Types
+
+The `TurnstileInstance` interface:
+
+```typescript
+interface TurnstileInstance {
+  render: () => string | undefined
+  execute: () => void
+  reset: () => void
+  remove: () => void
+  getResponse: () => string | undefined
+  getResponsePromise: (timeout?: number, retry?: number) => Promise<string>
+  isExpired: () => boolean
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Get Widget Token" icon="key" href="/guides/get-widget-token">
+    Learn different ways to retrieve tokens
+  </Card>
+  <Card title="TurnstileInstance API" icon="book" href="/api/turnstile-instance">
+    Complete API reference
+  </Card>
+  <Card title="Handling Expiration" icon="clock" href="/guides/handling-expiration">
+    Manage token expiration
+  </Card>
+</CardGroup>

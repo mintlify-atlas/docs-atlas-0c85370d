@@ -1,0 +1,379 @@
+---
+title: Get Widget Token
+description: Learn different methods to retrieve the Turnstile verification token.
+---
+
+## Overview
+
+After a user completes the Turnstile challenge, a token is generated. This token must be sent to your server for validation. There are multiple ways to retrieve this token.
+
+## Method 1: onSuccess Callback (Recommended)
+
+The most common approach is using the `onSuccess` callback:
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+import { useState } from 'react'
+
+function MyForm() {
+  const [token, setToken] = useState<string>()
+
+  return (
+    <form>
+      <Turnstile
+        siteKey="1x00000000000000000000AA"
+        onSuccess={(token) => {
+          console.log('Token received:', token)
+          setToken(token)
+        }}
+      />
+      <button type="submit" disabled={!token}>
+        Submit
+      </button>
+    </form>
+  )
+}
+```
+
+<Tip>
+  This is the recommended approach as it's reactive and works for all widget sizes and modes.
+</Tip>
+
+## Method 2: Hidden Form Field
+
+Turnstile automatically adds a hidden input field to the form:
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+
+function MyForm() {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const formData = new FormData(e.currentTarget)
+    const token = formData.get('cf-turnstile-response')
+    console.log('Token from form:', token)
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input type="email" name="email" />
+      {/* Hidden field "cf-turnstile-response" is auto-added */}
+      <Turnstile
+        siteKey="1x00000000000000000000AA"
+        options={{
+          responseField: true, // default
+          responseFieldName: 'cf-turnstile-response' // default
+        }}
+      />
+      <button type="submit">Submit</button>
+    </form>
+  )
+}
+```
+
+### Custom Field Name
+
+You can customize the hidden field name:
+
+```tsx
+<Turnstile
+  siteKey="1x00000000000000000000AA"
+  options={{
+    responseField: true,
+    responseFieldName: 'turnstile-token'
+  }}
+/>
+```
+
+### Disable Hidden Field
+
+If you don't want the hidden field:
+
+```tsx
+<Turnstile
+  siteKey="1x00000000000000000000AA"
+  options={{
+    responseField: false
+  }}
+/>
+```
+
+## Method 3: Using Refs (Synchronous)
+
+Retrieve the token on demand using `getResponse()`:
+
+```tsx
+import { Turnstile, TurnstileInstance } from '@marsidev/react-turnstile'
+import { useRef } from 'react'
+
+function MyForm() {
+  const turnstileRef = useRef<TurnstileInstance>(null)
+
+  const handleSubmit = () => {
+    const token = turnstileRef.current?.getResponse()
+    
+    if (token) {
+      console.log('Token:', token)
+      // Submit to your API
+    } else {
+      console.log('No token available yet')
+    }
+  }
+
+  return (
+    <form>
+      <Turnstile
+        ref={turnstileRef}
+        siteKey="1x00000000000000000000AA"
+      />
+      <button type="button" onClick={handleSubmit}>
+        Submit
+      </button>
+    </form>
+  )
+}
+```
+
+<Note>
+  `getResponse()` returns `undefined` if the widget hasn't been solved yet.
+</Note>
+
+## Method 4: Using Refs (Asynchronous)
+
+Wait for the token using `getResponsePromise()`:
+
+```tsx
+import { Turnstile, TurnstileInstance } from '@marsidev/react-turnstile'
+import { useRef } from 'react'
+
+function MyForm() {
+  const turnstileRef = useRef<TurnstileInstance>(null)
+
+  const handleSubmit = async () => {
+    try {
+      // Wait up to 30 seconds for the token
+      const token = await turnstileRef.current?.getResponsePromise(30000)
+      console.log('Token:', token)
+      
+      // Submit to your API
+      await fetch('/api/submit', {
+        method: 'POST',
+        body: JSON.stringify({ token })
+      })
+    } catch (error) {
+      console.error('Failed to get token:', error)
+    }
+  }
+
+  return (
+    <form>
+      <Turnstile
+        ref={turnstileRef}
+        siteKey="1x00000000000000000000AA"
+      />
+      <button type="button" onClick={handleSubmit}>
+        Submit
+      </button>
+    </form>
+  )
+}
+```
+
+<Tip>
+  Use `getResponsePromise()` for invisible widgets or when you need to ensure a token is available before proceeding.
+</Tip>
+
+## Method 5: Invisible Widget Pattern
+
+For invisible widgets, combine `execute()` with `getResponsePromise()`:
+
+```tsx
+import { Turnstile, TurnstileInstance } from '@marsidev/react-turnstile'
+import { useRef } from 'react'
+
+function InvisibleForm() {
+  const turnstileRef = useRef<TurnstileInstance>(null)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    try {
+      // Trigger the invisible challenge
+      turnstileRef.current?.execute()
+
+      // Wait for the token
+      const token = await turnstileRef.current?.getResponsePromise()
+
+      // Submit with token
+      const response = await fetch('/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      })
+
+      if (response.ok) {
+        alert('Success!')
+      }
+    } catch (error) {
+      console.error('Verification failed:', error)
+      turnstileRef.current?.reset()
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input type="email" required />
+      <Turnstile
+        ref={turnstileRef}
+        siteKey="1x00000000000000000000AA"
+        options={{
+          execution: 'execute',
+          size: 'invisible'
+        }}
+      />
+      <button type="submit">Submit</button>
+    </form>
+  )
+}
+```
+
+## Complete Integration Example
+
+Here's a complete example combining multiple approaches:
+
+```tsx
+import { Turnstile, TurnstileInstance } from '@marsidev/react-turnstile'
+import { useRef, useState } from 'react'
+
+function CompleteForm() {
+  const turnstileRef = useRef<TurnstileInstance>(null)
+  const [token, setToken] = useState<string>()
+  const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+
+    // Method 1: Use token from state (via onSuccess)
+    let verificationToken = token
+
+    // Method 2: Fallback to ref if token not in state
+    if (!verificationToken) {
+      verificationToken = turnstileRef.current?.getResponse()
+    }
+
+    // Method 3: Fallback to form data
+    if (!verificationToken) {
+      const formData = new FormData(e.currentTarget)
+      verificationToken = formData.get('cf-turnstile-response') as string
+    }
+
+    if (!verificationToken) {
+      alert('Please complete the verification')
+      return
+    }
+
+    // Check if token is expired
+    if (turnstileRef.current?.isExpired()) {
+      alert('Verification expired. Please try again.')
+      turnstileRef.current?.reset()
+      return
+    }
+
+    setStatus('submitting')
+
+    try {
+      const response = await fetch('/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: (e.currentTarget.elements.namedItem('email') as HTMLInputElement).value,
+          turnstileToken: verificationToken
+        })
+      })
+
+      if (response.ok) {
+        setStatus('success')
+      } else {
+        setStatus('error')
+        turnstileRef.current?.reset()
+      }
+    } catch (error) {
+      setStatus('error')
+      turnstileRef.current?.reset()
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        type="email"
+        name="email"
+        placeholder="Email"
+        required
+      />
+      <Turnstile
+        ref={turnstileRef}
+        siteKey="1x00000000000000000000AA"
+        onSuccess={(token) => {
+          console.log('Token received via callback:', token)
+          setToken(token)
+        }}
+        onExpire={() => {
+          console.log('Token expired')
+          setToken(undefined)
+        }}
+        onError={() => {
+          console.log('Error occurred')
+          setToken(undefined)
+        }}
+      />
+      <button type="submit" disabled={!token || status === 'submitting'}>
+        {status === 'submitting' ? 'Submitting...' : 'Submit'}
+      </button>
+      {status === 'success' && <p>Form submitted successfully!</p>}
+      {status === 'error' && <p>Error submitting form. Please try again.</p>}
+    </form>
+  )
+}
+```
+
+## Method Comparison
+
+| Method | When to Use | Pros | Cons |
+|--------|-------------|------|------|
+| `onSuccess` | Most cases | Reactive, immediate | Requires state management |
+| Hidden Field | Traditional forms | No JavaScript needed | Less flexible |
+| `getResponse()` | On-demand retrieval | Simple, direct | Returns undefined if not ready |
+| `getResponsePromise()` | Async workflows | Waits for token | Can timeout |
+| `execute()` + Promise | Invisible widgets | Full control | More complex |
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Check Expiration" icon="clock">
+    Always check if the token is expired before submitting
+  </Card>
+  <Card title="Handle Errors" icon="triangle-exclamation">
+    Reset the widget on submission errors
+  </Card>
+  <Card title="Use Callbacks" icon="bell">
+    Prefer `onSuccess` for reactive updates
+  </Card>
+  <Card title="Validate Server-Side" icon="server">
+    Never trust client-side tokens alone
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Server Validation" icon="server" href="/guides/server-validation">
+    Learn how to validate tokens on your server
+  </Card>
+  <Card title="Handling Expiration" icon="clock" href="/guides/handling-expiration">
+    Manage token expiration
+  </Card>
+  <Card title="Interact with Widget" icon="hand-pointer" href="/guides/interact-with-widget">
+    Control widgets programmatically
+  </Card>
+</CardGroup>

@@ -1,0 +1,471 @@
+---
+title: Troubleshooting
+description: Common issues and solutions when using React Turnstile
+---
+
+This guide covers common issues you might encounter when using React Turnstile and how to resolve them.
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Widget not rendering">
+    ### Problem
+    The Turnstile widget doesn't appear on the page.
+
+    ### Solutions
+
+    **Check the siteKey**
+    ```tsx
+    // Make sure you're using a valid siteKey
+    <Turnstile siteKey="1x00000000000000000000AA" />
+    ```
+
+    **Verify the container**
+    The widget needs a container to render into. Check that the parent element exists:
+    ```tsx
+    <div>
+      <Turnstile siteKey="your-site-key" />
+    </div>
+    ```
+
+    **Check for JavaScript errors**
+    Open the browser console (F12) and look for errors. Common issues:
+    - Script blocked by ad blockers
+    - CSP policy blocking the script
+    - Network errors preventing script load
+
+    **Wait for script to load**
+    The widget won't render until the Cloudflare script loads:
+    ```tsx
+    <Turnstile
+      siteKey="your-site-key"
+      onLoadScript={() => console.log('Script loaded')}
+      onWidgetLoad={(widgetId) => console.log('Widget rendered:', widgetId)}
+    />
+    ```
+  </Accordion>
+
+  <Accordion title="Script not loading">
+    ### Problem
+    The Cloudflare Turnstile script fails to load.
+
+    ### Solutions
+
+    **Check network connectivity**
+    Ensure your application can reach `https://challenges.cloudflare.com`.
+
+    **Disable ad blockers**
+    Some ad blockers prevent the Turnstile script from loading. Whitelist your site or disable the blocker.
+
+    **Check Content Security Policy**
+    Add Cloudflare domains to your CSP:
+    ```
+    Content-Security-Policy: 
+      script-src 'self' https://challenges.cloudflare.com;
+      frame-src 'self' https://challenges.cloudflare.com;
+    ```
+
+    **Handle script errors**
+    ```tsx
+    <Turnstile
+      siteKey="your-site-key"
+      scriptOptions={{
+        onError: () => {
+          console.error('Failed to load Turnstile script')
+          // Show fallback UI
+        }
+      }}
+    />
+    ```
+
+    **Use manual injection**
+    If automatic injection fails, inject the script manually:
+    ```tsx
+    import Script from 'next/script'
+    import { Turnstile, SCRIPT_URL, DEFAULT_SCRIPT_ID } from '@marsidev/react-turnstile'
+
+    <>
+      <Script id={DEFAULT_SCRIPT_ID} src={SCRIPT_URL} />
+      <Turnstile siteKey="your-site-key" injectScript={false} />
+    </>
+    ```
+  </Accordion>
+
+  <Accordion title="Token validation fails">
+    ### Problem
+    Server-side validation returns `success: false`.
+
+    ### Solutions
+
+    **Check secret key**
+    Ensure you're using the correct secret key on the server:
+    ```ts
+    const secret = process.env.TURNSTILE_SECRET_KEY
+    ```
+
+    **Token expiration**
+    Tokens expire after a few minutes. Validate immediately after receiving:
+    ```tsx
+    const handleSuccess = async (token: string) => {
+      // Validate immediately
+      const response = await fetch('/api/verify', {
+        method: 'POST',
+        body: JSON.stringify({ token }),
+      })
+    }
+    ```
+
+    **Token reuse**
+    Each token can only be validated once. If you need a new token, reset the widget:
+    ```tsx
+    const turnstileRef = useRef<TurnstileInstance>(null)
+
+    // After failed validation
+    turnstileRef.current?.reset()
+    ```
+
+    **Check error codes**
+    ```ts
+    const data: TurnstileServerValidationResponse = await response.json()
+    
+    if (!data.success) {
+      console.error('Error codes:', data['error-codes'])
+      // Handle specific errors:
+      // - 'missing-input-response': No token provided
+      // - 'invalid-input-response': Invalid or expired token  
+      // - 'timeout-or-duplicate': Token already used
+    }
+    ```
+
+    **Verify hostname**
+    By default, Cloudflare validates the hostname. Ensure requests come from the configured domain.
+  </Accordion>
+
+  <Accordion title="Hydration errors in Next.js">
+    ### Problem
+    React hydration mismatch warnings in Next.js.
+
+    ### Solutions
+
+    **Use 'use client' directive**
+    ```tsx
+    'use client'
+
+    import { Turnstile } from '@marsidev/react-turnstile'
+
+    export default function Form() {
+      return <Turnstile siteKey="your-site-key" />
+    }
+    ```
+
+    **Render only on client**
+    ```tsx
+    import { useEffect, useState } from 'react'
+
+    export default function TurnstileWrapper() {
+      const [isClient, setIsClient] = useState(false)
+
+      useEffect(() => {
+        setIsClient(true)
+      }, [])
+
+      if (!isClient) return null
+
+      return <Turnstile siteKey="your-site-key" />
+    }
+    ```
+
+    **Use dynamic import with no SSR**
+    ```tsx
+    import dynamic from 'next/dynamic'
+
+    const Turnstile = dynamic(
+      () => import('@marsidev/react-turnstile').then(mod => mod.Turnstile),
+      { ssr: false }
+    )
+    ```
+  </Accordion>
+
+  <Accordion title="Widget not resetting properly">
+    ### Problem
+    Calling `reset()` doesn't clear the widget state.
+
+    ### Solutions
+
+    **Check ref initialization**
+    ```tsx
+    const turnstileRef = useRef<TurnstileInstance>(null)
+
+    const handleReset = () => {
+      if (turnstileRef.current) {
+        turnstileRef.current.reset()
+      }
+    }
+    ```
+
+    **Wait for widget to load**
+    ```tsx
+    const [widgetLoaded, setWidgetLoaded] = useState(false)
+
+    const handleReset = () => {
+      if (widgetLoaded && turnstileRef.current) {
+        turnstileRef.current.reset()
+      }
+    }
+
+    return (
+      <Turnstile
+        ref={turnstileRef}
+        siteKey="your-site-key"
+        onWidgetLoad={() => setWidgetLoaded(true)}
+      />
+    )
+    ```
+
+    **Handle reset errors**
+    ```tsx
+    const handleReset = () => {
+      try {
+        turnstileRef.current?.reset()
+      } catch (error) {
+        console.error('Failed to reset widget:', error)
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Multiple widgets conflict">
+    ### Problem
+    Multiple Turnstile widgets on the same page interfere with each other.
+
+    ### Solutions
+
+    **Assign unique IDs**
+    ```tsx
+    <div>
+      <Turnstile id="widget-1" siteKey="your-site-key" />
+      <Turnstile id="widget-2" siteKey="your-site-key" />
+    </div>
+    ```
+
+    **Use single script injection**
+    ```tsx
+    import { Turnstile, injectTurnstileScript } from '@marsidev/react-turnstile'
+
+    // Inject script once
+    useEffect(() => {
+      injectTurnstileScript({})
+    }, [])
+
+    return (
+      <>
+        <Turnstile id="widget-1" siteKey="your-site-key" injectScript={false} />
+        <Turnstile id="widget-2" siteKey="your-site-key" injectScript={false} />
+      </>
+    )
+    ```
+
+    **Separate refs for each widget**
+    ```tsx
+    const widget1Ref = useRef<TurnstileInstance>(null)
+    const widget2Ref = useRef<TurnstileInstance>(null)
+
+    return (
+      <>
+        <Turnstile ref={widget1Ref} id="widget-1" siteKey="your-site-key" />
+        <Turnstile ref={widget2Ref} id="widget-2" siteKey="your-site-key" />
+      </>
+    )
+    ```
+  </Accordion>
+
+  <Accordion title="CSP policy blocks Turnstile">
+    ### Problem
+    Content Security Policy prevents Turnstile from loading.
+
+    ### Solutions
+
+    **Add Cloudflare domains to CSP**
+    ```
+    Content-Security-Policy:
+      default-src 'self';
+      script-src 'self' https://challenges.cloudflare.com;
+      frame-src 'self' https://challenges.cloudflare.com;
+      connect-src 'self' https://challenges.cloudflare.com;
+      style-src 'self' 'unsafe-inline' https://challenges.cloudflare.com;
+    ```
+
+    **Next.js configuration**
+    ```js
+    // next.config.js
+    module.exports = {
+      async headers() {
+        return [
+          {
+            source: '/(.*)',
+            headers: [
+              {
+                key: 'Content-Security-Policy',
+                value: [
+                  "default-src 'self'",
+                  "script-src 'self' https://challenges.cloudflare.com",
+                  "frame-src 'self' https://challenges.cloudflare.com",
+                  "connect-src 'self' https://challenges.cloudflare.com",
+                  "style-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
+                ].join('; ')
+              }
+            ]
+          }
+        ]
+      }
+    }
+    ```
+
+    **Use nonce for inline scripts**
+    ```tsx
+    const nonce = generateNonce() // Your nonce generation
+
+    <Turnstile
+      siteKey="your-site-key"
+      scriptOptions={{ nonce }}
+    />
+    ```
+  </Accordion>
+
+  <Accordion title="TypeScript errors">
+    ### Problem
+    TypeScript compilation errors when using React Turnstile.
+
+    ### Solutions
+
+    **Import types correctly**
+    ```tsx
+    import { Turnstile, type TurnstileInstance, type TurnstileProps } from '@marsidev/react-turnstile'
+    ```
+
+    **Type the ref properly**
+    ```tsx
+    import { useRef } from 'react'
+    import type { TurnstileInstance } from '@marsidev/react-turnstile'
+
+    const turnstileRef = useRef<TurnstileInstance>(null)
+    ```
+
+    **Update TypeScript config**
+    Ensure your `tsconfig.json` includes:
+    ```json
+    {
+      "compilerOptions": {
+        "moduleResolution": "bundler",
+        "esModuleInterop": true
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Widget appears then disappears">
+    ### Problem
+    The widget briefly appears then vanishes.
+
+    ### Solutions
+
+    **Check component re-renders**
+    Excessive re-renders can cause the widget to unmount:
+    ```tsx
+    // Use stable callback refs
+    const handleSuccess = useCallback((token: string) => {
+      console.log('Token:', token)
+    }, [])
+
+    return (
+      <Turnstile
+        siteKey="your-site-key"
+        onSuccess={handleSuccess}
+        rerenderOnCallbackChange={false} // Default
+      />
+    )
+    ```
+
+    **Avoid conditional rendering**
+    ```tsx
+    // Bad: Widget unmounts when condition changes
+    {showWidget && <Turnstile siteKey="your-site-key" />}
+
+    // Good: Widget stays mounted
+    <div style={{ display: showWidget ? 'block' : 'none' }}>
+      <Turnstile siteKey="your-site-key" />
+    </div>
+    ```
+
+    **Check parent component state**
+    Ensure the parent component isn't unmounting the widget.
+  </Accordion>
+
+  <Accordion title="Race condition on script load">
+    ### Problem
+    Widget sometimes fails to render due to timing issues.
+
+    ### Solution
+
+    This issue was fixed in v1.4.1. Update to the latest version:
+    ```bash
+    npm install @marsidev/react-turnstile@latest
+    ```
+
+    The library now polls for `window.turnstile` to handle race conditions automatically.
+  </Accordion>
+</AccordionGroup>
+
+## Error Messages
+
+### Client-Side Errors
+
+Cloudflare Turnstile may call `onError` with these error codes:
+
+- **`110100`**: Invalid siteKey
+- **`110200`**: Invalid domain
+- **`110300`**: Network error
+- **`110400`**: Timeout
+- **`110500`**: Internal error
+- **`110600`**: Challenge failed
+
+```tsx
+const handleError = (errorCode: string) => {
+  const messages: Record<string, string> = {
+    '110100': 'Invalid site key configured',
+    '110200': 'Domain not authorized for this site key',
+    '110300': 'Network connection failed',
+    '110400': 'Challenge timeout - please try again',
+    '110500': 'Internal error - please try again',
+    '110600': 'Challenge verification failed',
+  }
+  
+  alert(messages[errorCode] || 'An error occurred')
+}
+
+<Turnstile siteKey="your-site-key" onError={handleError} />
+```
+
+### Server-Side Errors
+
+Validation API returns these error codes in `error-codes` array:
+
+- **`missing-input-secret`**: Server didn't send secret key
+- **`invalid-input-secret`**: Secret key is invalid
+- **`missing-input-response`**: Token wasn't provided
+- **`invalid-input-response`**: Token is invalid or expired
+- **`timeout-or-duplicate`**: Token was already validated
+- **`internal-error`**: Cloudflare server error
+
+## Still Having Issues?
+
+If you're still experiencing problems:
+
+1. Check the [GitHub Issues](https://github.com/marsidev/react-turnstile/issues) for similar problems
+2. Review the [Cloudflare Turnstile documentation](https://developers.cloudflare.com/turnstile/)
+3. Open a new issue with:
+   - React Turnstile version
+   - Framework and version (Next.js, React, etc.)
+   - Browser and version
+   - Minimal reproduction code
+   - Error messages and console logs

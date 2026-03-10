@@ -1,0 +1,289 @@
+---
+title: 'Server Validation'
+description: 'Types and error codes for server-side token validation'
+icon: 'shield-check'
+---
+
+## Overview
+
+After receiving a token from the Turnstile widget, you must validate it on your server by calling Cloudflare's siteverify API.
+
+## Validation Endpoint
+
+```
+POST https://challenges.cloudflare.com/turnstile/v0/siteverify
+```
+
+## TurnstileServerValidationResponse
+
+```tsx
+interface TurnstileServerValidationResponse {
+  success: boolean
+  'error-codes': TurnstileServerValidationErrorCode[]
+  challenge_ts?: string
+  hostname?: string
+  action?: string
+  cdata?: string
+  metadata?: { interactive: boolean }
+  messages?: string[]
+}
+```
+
+## Response Fields
+
+<ResponseField name="success" type="boolean" required>
+  Indicates if the token validation was successful or not.
+  
+  - `true`: Token is valid
+  - `false`: Token is invalid (check `error-codes` for details)
+</ResponseField>
+
+<ResponseField name="error-codes" type="TurnstileServerValidationErrorCode[]" required>
+  A list of error codes that occurred during validation. Empty array if validation succeeded.
+  
+  See [Error Codes](#error-codes) below for all possible values.
+</ResponseField>
+
+<ResponseField name="challenge_ts" type="string">
+  The ISO timestamp for when the challenge was solved.
+  
+  Example: `"2023-10-15T12:34:56.789Z"`
+</ResponseField>
+
+<ResponseField name="hostname" type="string">
+  The hostname for which the challenge was served.
+  
+  Example: `"example.com"`
+</ResponseField>
+
+<ResponseField name="action" type="string">
+  The customer widget identifier passed to the widget on the client side. Used to differentiate widgets using the same sitekey in analytics.
+  
+  Its integrity is protected from modifications by an attacker. It is recommended to validate that the action matches an expected value.
+</ResponseField>
+
+<ResponseField name="cdata" type="string">
+  The customer data passed to the widget on the client side. This can be used to convey state.
+  
+  Its integrity is protected from modifications by an attacker.
+</ResponseField>
+
+<ResponseField name="metadata" type="{ interactive: boolean }">
+  Additional metadata about the challenge.
+  
+  - `interactive`: Whether an interactive challenge was issued by Cloudflare
+</ResponseField>
+
+<ResponseField name="messages" type="string[]">
+  Error messages returned from the validation.
+</ResponseField>
+
+## Error Codes
+
+```tsx
+type TurnstileServerValidationErrorCode =
+  | 'missing-input-secret'
+  | 'invalid-input-secret'
+  | 'missing-input-response'
+  | 'invalid-input-response'
+  | 'invalid-widget-id'
+  | 'invalid-parsed-secret'
+  | 'bad-request'
+  | 'timeout-or-duplicate'
+  | 'internal-error'
+```
+
+### Error Code Descriptions
+
+<ResponseField name="missing-input-secret" type="string">
+  The secret parameter was not passed in the request.
+</ResponseField>
+
+<ResponseField name="invalid-input-secret" type="string">
+  The secret parameter was invalid or does not exist.
+</ResponseField>
+
+<ResponseField name="missing-input-response" type="string">
+  The response parameter (token) was not passed in the request.
+</ResponseField>
+
+<ResponseField name="invalid-input-response" type="string">
+  The response parameter (token) is invalid or has expired.
+</ResponseField>
+
+<ResponseField name="invalid-widget-id" type="string">
+  The widget ID extracted from the parsed site secret key was invalid or does not exist.
+</ResponseField>
+
+<ResponseField name="invalid-parsed-secret" type="string">
+  The secret extracted from the parsed site secret key was invalid.
+</ResponseField>
+
+<ResponseField name="bad-request" type="string">
+  The request was rejected because it was malformed.
+</ResponseField>
+
+<ResponseField name="timeout-or-duplicate" type="string">
+  The response parameter has already been validated before. Tokens can only be validated once.
+</ResponseField>
+
+<ResponseField name="internal-error" type="string">
+  An internal error happened while validating the response. The request can be retried.
+</ResponseField>
+
+## Validation Example
+
+### Client-Side (React)
+
+```tsx
+import { useRef } from 'react'
+import Turnstile from '@marsidev/react-turnstile'
+import type { TurnstileInstance } from '@marsidev/react-turnstile'
+
+function MyForm() {
+  const turnstileRef = useRef<TurnstileInstance>(null)
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+
+    // Get the token
+    const token = await turnstileRef.current?.getResponsePromise()
+
+    if (!token) {
+      console.error('No turnstile token')
+      return
+    }
+
+    // Send to your server for validation
+    const response = await fetch('/api/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    })
+
+    const result = await response.json()
+
+    if (result.success) {
+      console.log('Validation successful!')
+    } else {
+      console.error('Validation failed:', result.errors)
+      turnstileRef.current?.reset()
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <Turnstile ref={turnstileRef} siteKey="your-site-key" />
+      <button type="submit">Submit</button>
+    </form>
+  )
+}
+```
+
+### Server-Side (Node.js/Express)
+
+```typescript
+import type { TurnstileServerValidationResponse } from '@marsidev/react-turnstile'
+
+app.post('/api/verify', async (req, res) => {
+  const { token } = req.body
+
+  // Validate with Cloudflare
+  const response = await fetch(
+    'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        secret: process.env.TURNSTILE_SECRET_KEY,
+        response: token,
+        remoteip: req.ip // Optional
+      })
+    }
+  )
+
+  const data: TurnstileServerValidationResponse = await response.json()
+
+  if (!data.success) {
+    return res.status(400).json({
+      success: false,
+      errors: data['error-codes']
+    })
+  }
+
+  // Optionally validate the action
+  if (data.action !== 'login') {
+    return res.status(400).json({
+      success: false,
+      errors: ['invalid-action']
+    })
+  }
+
+  // Token is valid, proceed with your logic
+  res.json({ success: true })
+})
+```
+
+### Server-Side (Next.js API Route)
+
+```typescript
+import type { NextApiRequest, NextApiResponse } from 'next'
+import type { TurnstileServerValidationResponse } from '@marsidev/react-turnstile'
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+
+  const { token } = req.body
+
+  const response = await fetch(
+    'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        secret: process.env.TURNSTILE_SECRET_KEY!,
+        response: token
+      })
+    }
+  )
+
+  const data: TurnstileServerValidationResponse = await response.json()
+
+  if (!data.success) {
+    return res.status(400).json({
+      success: false,
+      errors: data['error-codes']
+    })
+  }
+
+  return res.json({ success: true, data })
+}
+```
+
+## Best Practices
+
+1. **Always validate server-side**: Never trust client-side validation alone
+2. **Validate once**: Tokens can only be validated once. Store the result if needed
+3. **Check action field**: Validate that the `action` matches your expected value
+4. **Handle errors gracefully**: Reset the widget on validation failure
+5. **Use environment variables**: Store your secret key securely
+6. **Set timeout**: Don't wait indefinitely for token generation
+
+## Security Considerations
+
+- **Keep secret key secure**: Never expose your Turnstile secret key in client-side code
+- **Validate hostname**: Check that the `hostname` field matches your domain
+- **Use HTTPS**: Always validate tokens over HTTPS
+- **Rate limiting**: Implement rate limiting on your validation endpoint
+- **Token expiry**: Tokens expire after a few minutes. Validate promptly
+
+## Related Documentation
+
+- [Cloudflare Turnstile Server-side Validation](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/)
+- [Cloudflare Error Codes](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/#error-codes)
+- [TurnstileInstance](/api/turnstile-instance) - Client-side methods

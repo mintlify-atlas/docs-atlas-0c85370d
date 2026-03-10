@@ -1,0 +1,498 @@
+---
+title: Examples
+description: Real-world examples and demo implementations of React Turnstile
+---
+
+Explore practical examples of React Turnstile in various scenarios and frameworks.
+
+## Live Demo
+
+Check out the live demo application:
+
+<Card title="React Turnstile Demo" icon="browser" href="https://react-turnstile.vercel.app/">
+  Interactive demo with multiple examples and configurations
+</Card>
+
+## Example Repository
+
+All examples are available in the GitHub repository:
+
+<Card title="Demo Source Code" icon="github" href="https://github.com/marsidev/react-turnstile/tree/main/demos/nextjs">
+  Browse the complete demo implementation built with Next.js
+</Card>
+
+## Basic Implementation
+
+Simple form with Turnstile protection:
+
+```tsx
+'use client'
+
+import { Turnstile } from '@marsidev/react-turnstile'
+import { useState } from 'react'
+
+export default function ContactForm() {
+  const [token, setToken] = useState<string | null>(null)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!token) {
+      alert('Please complete the security check')
+      return
+    }
+
+    const formData = new FormData(e.target as HTMLFormElement)
+    
+    await fetch('/api/contact', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: formData.get('email'),
+        message: formData.get('message'),
+        token,
+      }),
+    })
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input name="email" type="email" placeholder="Email" required />
+      <textarea name="message" placeholder="Message" required />
+      
+      <Turnstile
+        siteKey="1x00000000000000000000AA"
+        onSuccess={setToken}
+      />
+      
+      <button type="submit">Send Message</button>
+    </form>
+  )
+}
+```
+
+## Multiple Widgets
+
+Render multiple Turnstile widgets on the same page:
+
+```tsx
+'use client'
+
+import { Turnstile } from '@marsidev/react-turnstile'
+import { useRef } from 'react'
+
+export default function MultipleWidgets() {
+  const widget1Ref = useRef(null)
+  const widget2Ref = useRef(null)
+
+  return (
+    <div>
+      <section>
+        <h2>Login Form</h2>
+        <Turnstile 
+          ref={widget1Ref}
+          id="widget-1"
+          siteKey="1x00000000000000000000AA"
+          options={{ size: 'normal' }}
+        />
+      </section>
+
+      <section>
+        <h2>Newsletter Signup</h2>
+        <Turnstile
+          ref={widget2Ref}
+          id="widget-2"
+          siteKey="1x00000000000000000000AA"
+          options={{ size: 'compact' }}
+        />
+      </section>
+    </div>
+  )
+}
+```
+
+## Manual Script Injection
+
+Control when and how the Turnstile script loads:
+
+```tsx
+'use client'
+
+import Script from 'next/script'
+import { Turnstile, SCRIPT_URL, DEFAULT_SCRIPT_ID } from '@marsidev/react-turnstile'
+
+export default function ManualInjection() {
+  return (
+    <>
+      <Script 
+        id={DEFAULT_SCRIPT_ID}
+        src={SCRIPT_URL}
+        strategy="beforeInteractive"
+      />
+
+      <Turnstile
+        siteKey="1x00000000000000000000AA"
+        injectScript={false}
+      />
+    </>
+  )
+}
+```
+
+## Custom Script Props
+
+Customize the injected script with CSP nonce and other options:
+
+```tsx
+'use client'
+
+import { Turnstile } from '@marsidev/react-turnstile'
+
+export default function CustomScriptProps() {
+  return (
+    <Turnstile
+      siteKey="1x00000000000000000000AA"
+      scriptOptions={{
+        nonce: 'your-csp-nonce',
+        appendTo: 'head',
+        defer: true,
+        async: true,
+        crossOrigin: 'anonymous',
+      }}
+    />
+  )
+}
+```
+
+## Form Integration
+
+Complete form with validation and submission:
+
+```tsx
+'use client'
+
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
+import { useRef, useState, type FormEvent } from 'react'
+
+export default function CompleteForm() {
+  const turnstileRef = useRef<TurnstileInstance>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setError(null)
+    setIsSubmitting(true)
+
+    const token = turnstileRef.current?.getResponse()
+    
+    if (!token) {
+      setError('Please complete the security check')
+      setIsSubmitting(false)
+      return
+    }
+
+    try {
+      const formData = new FormData(e.currentTarget)
+      
+      const response = await fetch('/api/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.get('name'),
+          email: formData.get('email'),
+          token,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Submission failed')
+      }
+
+      alert('Form submitted successfully!')
+      e.currentTarget.reset()
+      turnstileRef.current?.reset()
+    } catch (err) {
+      setError('Failed to submit form. Please try again.')
+      turnstileRef.current?.reset()
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input 
+        name="name" 
+        type="text" 
+        placeholder="Name" 
+        required 
+        disabled={isSubmitting}
+      />
+      
+      <input 
+        name="email" 
+        type="email" 
+        placeholder="Email" 
+        required 
+        disabled={isSubmitting}
+      />
+
+      <Turnstile
+        ref={turnstileRef}
+        siteKey="1x00000000000000000000AA"
+        onError={() => setError('Security check failed. Please try again.')}
+      />
+
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+
+      <button type="submit" disabled={isSubmitting}>
+        {isSubmitting ? 'Submitting...' : 'Submit'}
+      </button>
+    </form>
+  )
+}
+```
+
+## Server-Side Verification
+
+Next.js API route for server-side token validation:
+
+```tsx
+// app/api/verify/route.ts
+import type { TurnstileServerValidationResponse } from '@marsidev/react-turnstile'
+
+const VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify'
+
+export async function POST(request: Request) {
+  const { token } = await request.json()
+
+  if (!token) {
+    return Response.json(
+      { success: false, error: 'Token is required' },
+      { status: 400 }
+    )
+  }
+
+  const response = await fetch(VERIFY_URL, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      secret: process.env.TURNSTILE_SECRET_KEY!,
+      response: token,
+    }),
+  })
+
+  const data: TurnstileServerValidationResponse = await response.json()
+
+  if (!data.success) {
+    return Response.json(
+      { success: false, errors: data['error-codes'] },
+      { status: 400 }
+    )
+  }
+
+  return Response.json({ 
+    success: true,
+    challenge_ts: data.challenge_ts,
+    hostname: data.hostname,
+  })
+}
+```
+
+## Theme Switching
+
+Dynamic theme switching based on user preference:
+
+```tsx
+'use client'
+
+import { Turnstile } from '@marsidev/react-turnstile'
+import { useTheme } from 'next-themes'
+import { useEffect, useState } from 'react'
+
+export default function ThemedTurnstile() {
+  const { resolvedTheme } = useTheme()
+  const [key, setKey] = useState(0)
+
+  // Force re-render when theme changes
+  useEffect(() => {
+    setKey(prev => prev + 1)
+  }, [resolvedTheme])
+
+  return (
+    <Turnstile
+      key={key}
+      siteKey="1x00000000000000000000AA"
+      options={{
+        theme: resolvedTheme === 'dark' ? 'dark' : 'light',
+      }}
+    />
+  )
+}
+```
+
+## Invisible Challenge
+
+Invisible widget that triggers on form submission:
+
+```tsx
+'use client'
+
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
+import { useRef, useState } from 'react'
+
+export default function InvisibleChallenge() {
+  const turnstileRef = useRef<TurnstileInstance>(null)
+  const [isProcessing, setIsProcessing] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsProcessing(true)
+
+    // Trigger the invisible challenge
+    turnstileRef.current?.execute()
+
+    // Get the token (will wait for challenge to complete)
+    try {
+      const token = await turnstileRef.current?.getResponsePromise()
+      
+      if (token) {
+        await submitForm(token)
+      }
+    } catch (error) {
+      console.error('Challenge failed:', error)
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  const submitForm = async (token: string) => {
+    // Your form submission logic
+    console.log('Submitting with token:', token)
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input name="email" type="email" required />
+      
+      <Turnstile
+        ref={turnstileRef}
+        siteKey="1x00000000000000000000AA"
+        options={{
+          size: 'invisible',
+          execution: 'execute',
+        }}
+      />
+      
+      <button type="submit" disabled={isProcessing}>
+        {isProcessing ? 'Processing...' : 'Submit'}
+      </button>
+    </form>
+  )
+}
+```
+
+## Multi-Page Application
+
+Persist Turnstile state across page navigation:
+
+```tsx
+// components/TurnstileProvider.tsx
+'use client'
+
+import { createContext, useContext, useState, type ReactNode } from 'react'
+
+interface TurnstileContextType {
+  token: string | null
+  setToken: (token: string | null) => void
+  isVerified: boolean
+}
+
+const TurnstileContext = createContext<TurnstileContextType | undefined>(undefined)
+
+export function TurnstileProvider({ children }: { children: ReactNode }) {
+  const [token, setToken] = useState<string | null>(null)
+  const isVerified = !!token
+
+  return (
+    <TurnstileContext.Provider value={{ token, setToken, isVerified }}>
+      {children}
+    </TurnstileContext.Provider>
+  )
+}
+
+export function useTurnstile() {
+  const context = useContext(TurnstileContext)
+  if (!context) {
+    throw new Error('useTurnstile must be used within TurnstileProvider')
+  }
+  return context
+}
+
+// pages/step1.tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+import { useTurnstile } from './TurnstileProvider'
+import { useRouter } from 'next/navigation'
+
+export default function Step1() {
+  const { setToken } = useTurnstile()
+  const router = useRouter()
+
+  const handleSuccess = (token: string) => {
+    setToken(token)
+    router.push('/step2')
+  }
+
+  return (
+    <div>
+      <h1>Step 1: Verification</h1>
+      <Turnstile
+        siteKey="1x00000000000000000000AA"
+        onSuccess={handleSuccess}
+      />
+    </div>
+  )
+}
+
+// pages/step2.tsx
+import { useTurnstile } from './TurnstileProvider'
+import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
+
+export default function Step2() {
+  const { token, isVerified } = useTurnstile()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!isVerified) {
+      router.push('/step1')
+    }
+  }, [isVerified, router])
+
+  if (!isVerified) return null
+
+  return (
+    <div>
+      <h1>Step 2: Complete Form</h1>
+      <p>Token: {token}</p>
+      {/* Your form here */}
+    </div>
+  )
+}
+```
+
+## More Examples
+
+For more examples, check out the demo application:
+
+- **Basic Usage**: Simple widget implementation
+- **Manual Script Injection**: Custom script loading
+- **Multiple Widgets**: Multiple widgets on one page  
+- **Custom Script Props**: CSP and nonce configuration
+- **Theme Customization**: Light, dark, and auto themes
+- **Size Variants**: Normal, compact, flexible sizes
+- **Language Support**: Multi-language examples
+
+Visit the [live demo](https://react-turnstile.vercel.app/) to see all examples in action.

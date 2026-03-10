@@ -1,0 +1,149 @@
+---
+title: 'TurnstileProps'
+description: 'Props interface for the Turnstile component'
+icon: 'sliders'
+---
+
+## Interface
+
+```tsx
+interface TurnstileProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onError'> {
+  siteKey: string
+  onWidgetLoad?: (widgetID: string) => void
+  onSuccess?: (token: string) => void
+  onExpire?: (token: string) => void
+  onError?: (error: string) => void
+  onBeforeInteractive?: () => void
+  onAfterInteractive?: () => void
+  onUnsupported?: () => void
+  onTimeout?: () => void
+  options?: ComponentRenderOptions
+  scriptOptions?: ScriptOptions
+  as?: React.ElementType
+  injectScript?: boolean
+  onLoadScript?: () => void
+  rerenderOnCallbackChange?: boolean
+}
+```
+
+## Required Props
+
+<ParamField path="siteKey" type="string" required>
+  Your Cloudflare Turnstile sitekey. This sitekey is associated with the corresponding widget configuration and is created upon widget creation.
+  
+  Get your sitekey from the [Cloudflare Dashboard](https://dash.cloudflare.com/?to=/:account/turnstile).
+</ParamField>
+
+## Callback Props
+
+<ParamField path="onWidgetLoad" type="(widgetID: string) => void">
+  Callback invoked after a successful render of the widget. The callback is passed the widget ID. 
+  
+  **Note:** Does not trigger when the widget is reset.
+</ParamField>
+
+<ParamField path="onSuccess" type="(token: string) => void">
+  Callback invoked upon successful completion of the challenge. The callback receives a token that can be validated on your server.
+  
+  See [Server Validation](/api/server-validation) for how to validate tokens.
+</ParamField>
+
+<ParamField path="onExpire" type="(token: string) => void">
+  Callback invoked when a challenge expires. The callback receives the expired token.
+</ParamField>
+
+<ParamField path="onError" type="(error: string) => void">
+  Callback invoked when there is an error (e.g., network error or challenge failure). The callback receives an error code.
+  
+  Refer to [Client-side errors](https://developers.cloudflare.com/turnstile/troubleshooting/client-side-errors/) in the Cloudflare documentation.
+</ParamField>
+
+<ParamField path="onBeforeInteractive" type="() => void">
+  Callback invoked before the user is prompted for interactivity.
+</ParamField>
+
+<ParamField path="onAfterInteractive" type="() => void">
+  Callback invoked when the interactive challenge has been solved.
+</ParamField>
+
+<ParamField path="onUnsupported" type="() => void">
+  Callback invoked when the browser is not supported by Turnstile.
+</ParamField>
+
+<ParamField path="onTimeout" type="() => void">
+  Callback invoked when the Turnstile widget times out.
+</ParamField>
+
+## Configuration Props
+
+<ParamField path="options" type="ComponentRenderOptions">
+  Custom widget render options that control the appearance and behavior of the Turnstile widget.
+  
+  See [ComponentRenderOptions](/api/render-options) for all available options.
+</ParamField>
+
+<ParamField path="scriptOptions" type="ScriptOptions">
+  Custom options for the injected Turnstile script, including nonce, defer, async, and more.
+  
+  See [ScriptOptions](/api/script-options) for all available options.
+</ParamField>
+
+<ParamField path="as" type="React.ElementType" default="'div'">
+  Define the HTML tag of the widget container. Defaults to `'div'`.
+  
+  ```tsx
+  <Turnstile as="section" siteKey="..." />
+  ```
+</ParamField>
+
+<ParamField path="injectScript" type="boolean" default="true">
+  Controls whether the Turnstile script is automatically injected. Set to `false` if you want to inject the script manually.
+  
+  ```tsx
+  <Turnstile injectScript={false} siteKey="..." />
+  ```
+</ParamField>
+
+<ParamField path="onLoadScript" type="() => void">
+  Callback invoked when the Turnstile script is loaded.
+</ParamField>
+
+<ParamField path="rerenderOnCallbackChange" type="boolean" default="false">
+  Controls whether the widget re-renders when callback props change.
+  
+  - `false` (default): Stable callbacks - better performance, callbacks don't cause widget re-renders
+  - `true`: Dynamic callbacks - widget re-renders when callbacks change, useful for intentional callback updates
+  
+  **Important:** When set to `true`, wrap your callback functions with `useCallback` to prevent unnecessary widget re-renders on every parent component re-render.
+  
+  ```tsx
+  const handleSuccess = useCallback((token) => {
+    console.log('Success:', token)
+  }, [])
+
+  <Turnstile
+    rerenderOnCallbackChange={true}
+    onSuccess={handleSuccess}
+    siteKey="..."
+  />
+  ```
+</ParamField>
+
+## HTML Attributes
+
+Since `TurnstileProps` extends `Omit<React.HTMLAttributes<HTMLDivElement>, 'onError'>`, you can pass any standard HTML div attributes:
+
+```tsx
+<Turnstile
+  siteKey="your-site-key"
+  className="my-turnstile"
+  style={{ margin: '20px' }}
+  data-testid="turnstile-widget"
+/>
+```
+
+## Related Types
+
+- [ComponentRenderOptions](/api/render-options) - Widget render options
+- [ScriptOptions](/api/script-options) - Script injection options
+- [TurnstileInstance](/api/turnstile-instance) - Ref methods interface

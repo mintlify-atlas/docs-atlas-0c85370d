@@ -1,0 +1,276 @@
+---
+title: 'TurnstileInstance'
+description: 'Imperative methods available via ref'
+icon: 'hand-pointer'
+---
+
+## Interface
+
+```tsx
+interface TurnstileInstance extends Omit<Turnstile.Turnstile, 'ready'> {
+  render: () => string | null | undefined
+  execute: () => void
+  reset: () => void
+  remove: () => void
+  getResponse: () => string | undefined
+  getResponsePromise: (timeout?: number, retry?: number) => Promise<string>
+  isExpired: () => boolean
+}
+```
+
+## Usage
+
+Access these methods using React refs:
+
+```tsx
+import { useRef } from 'react'
+import Turnstile from '@marsidev/react-turnstile'
+import type { TurnstileInstance } from '@marsidev/react-turnstile'
+
+function MyComponent() {
+  const turnstileRef = useRef<TurnstileInstance>(null)
+
+  const handleReset = () => {
+    turnstileRef.current?.reset()
+  }
+
+  return <Turnstile ref={turnstileRef} siteKey="your-site-key" />
+}
+```
+
+## Methods
+
+### render
+
+```tsx
+render(): string | null | undefined
+```
+
+Explicitly renders the Turnstile widget.
+
+**Returns:** The rendered widget ID, or `undefined` if rendering fails.
+
+**Example:**
+```tsx
+const widgetId = turnstileRef.current?.render()
+if (widgetId) {
+  console.log('Widget rendered with ID:', widgetId)
+}
+```
+
+---
+
+### execute
+
+```tsx
+execute(): void
+```
+
+Renders a widget when `options.execution` is set to `'execute'`. This method should be called after the `.render()` method. If `options.execution` is set to `'render'`, this method has no effect.
+
+**Example:**
+```tsx
+// First render the widget
+turnstileRef.current?.render()
+
+// Then execute when ready (for invisible widgets)
+turnstileRef.current?.execute()
+```
+
+---
+
+### reset
+
+```tsx
+reset(): void
+```
+
+Resets the Turnstile widget to its initial state. Useful for allowing users to retry after an error or when form submission fails.
+
+**Example:**
+```tsx
+const handleFormError = () => {
+  // Reset the widget so user can try again
+  turnstileRef.current?.reset()
+}
+```
+
+---
+
+### remove
+
+```tsx
+remove(): void
+```
+
+Fully removes the Turnstile widget from the DOM. Use this for cleanup or when dynamically showing/hiding the widget.
+
+**Example:**
+```tsx
+const handleCleanup = () => {
+  turnstileRef.current?.remove()
+}
+```
+
+---
+
+### getResponse
+
+```tsx
+getResponse(): string | undefined
+```
+
+Gets the current token response from the Turnstile widget.
+
+**Returns:** The token string if available, or `undefined` if the widget hasn't been solved yet.
+
+**Example:**
+```tsx
+const handleSubmit = () => {
+  const token = turnstileRef.current?.getResponse()
+  if (token) {
+    // Send token to your server for validation
+    validateToken(token)
+  } else {
+    console.error('No token available')
+  }
+}
+```
+
+---
+
+### getResponsePromise
+
+```tsx
+getResponsePromise(timeout?: number, retry?: number): Promise<string>
+```
+
+Gets the response of a Turnstile widget as a promise. It waits until the widget is rendered and solved.
+
+<ParamField path="timeout" type="number" default="30000">
+  Timeout in milliseconds. Defaults to 30000 (30 seconds).
+</ParamField>
+
+<ParamField path="retry" type="number" default="250">
+  Retry interval in milliseconds. Defaults to 250ms.
+</ParamField>
+
+**Returns:** A promise that resolves with the token string.
+
+**Throws:** Error if the widget times out or fails to get a response.
+
+**Example:**
+```tsx
+const handleSubmit = async () => {
+  try {
+    // Wait up to 30 seconds for the token
+    const token = await turnstileRef.current?.getResponsePromise()
+    
+    // Validate on your server
+    await fetch('/api/verify', {
+      method: 'POST',
+      body: JSON.stringify({ token })
+    })
+  } catch (error) {
+    console.error('Failed to get turnstile token:', error)
+  }
+}
+```
+
+**Custom timeout example:**
+```tsx
+// Wait up to 10 seconds, checking every 100ms
+const token = await turnstileRef.current?.getResponsePromise(10000, 100)
+```
+
+---
+
+### isExpired
+
+```tsx
+isExpired(): boolean
+```
+
+Checks whether the token returned by the widget is expired.
+
+**Returns:** `true` if the token is expired, `false` otherwise.
+
+**Example:**
+```tsx
+const handleSubmit = () => {
+  const expired = turnstileRef.current?.isExpired()
+  
+  if (expired) {
+    console.log('Token expired, resetting widget')
+    turnstileRef.current?.reset()
+    return
+  }
+  
+  const token = turnstileRef.current?.getResponse()
+  // Proceed with token validation
+}
+```
+
+## Common Patterns
+
+### Form Submission with Token
+
+```tsx
+const handleSubmit = async (e: FormEvent) => {
+  e.preventDefault()
+  
+  try {
+    const token = await turnstileRef.current?.getResponsePromise()
+    
+    const response = await fetch('/api/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, ...formData })
+    })
+    
+    if (!response.ok) {
+      // Reset on error
+      turnstileRef.current?.reset()
+    }
+  } catch (error) {
+    console.error('Turnstile error:', error)
+  }
+}
+```
+
+### Invisible Widget Pattern
+
+```tsx
+function InvisibleCaptcha() {
+  const turnstileRef = useRef<TurnstileInstance>(null)
+  
+  const handleButtonClick = async () => {
+    // Render invisible widget
+    turnstileRef.current?.render()
+    
+    // Execute the challenge
+    turnstileRef.current?.execute()
+    
+    // Wait for token
+    const token = await turnstileRef.current?.getResponsePromise()
+    
+    // Use token...
+  }
+  
+  return (
+    <>
+      <button onClick={handleButtonClick}>Submit</button>
+      <Turnstile
+        ref={turnstileRef}
+        siteKey="your-site-key"
+        options={{ execution: 'execute', size: 'invisible' }}
+      />
+    </>
+  )
+}
+```
+
+## Related Types
+
+- [TurnstileProps](/api/turnstile-props) - Component props
+- [Turnstile Component](/api/turnstile-component) - Main component

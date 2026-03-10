@@ -1,0 +1,298 @@
+---
+title: Migration Guide
+description: Guide for migrating between major versions of React Turnstile
+---
+
+This guide helps you migrate between major versions of React Turnstile.
+
+## Current Version
+
+The latest stable version is **v1.4.2**. This library follows semantic versioning.
+
+## Migrating to v1.4.x
+
+### What's New
+
+- **v1.4.2**: Security dependency updates and bug fixes
+- **v1.4.1**: Fixed race condition when loading Turnstile script
+- **v1.4.0**: Updated dependencies and CI configurations
+
+### Changes
+
+<AccordionGroup>
+  <Accordion title="v1.4.2 - Security Updates">
+    **Fixed**: Security vulnerabilities in dependencies
+
+    No breaking changes. Update normally:
+    ```bash
+    npm install @marsidev/react-turnstile@1.4.2
+    ```
+
+    **What's Fixed**:
+    - `feedbackEnabled` option can now be set to `false` properly
+    - Security patches for `minimatch`, `rollup`, and `ajv`
+  </Accordion>
+
+  <Accordion title="v1.4.1 - Race Condition Fix">
+    **Fixed**: Widget sometimes fails to render due to script loading race condition
+
+    No code changes required. The fix is automatic:
+    ```bash
+    npm install @marsidev/react-turnstile@1.4.1
+    ```
+
+    **What's Fixed**:
+    - Script loading race condition resolved
+    - Widget now polls for `window.turnstile` to ensure proper initialization
+  </Accordion>
+</AccordionGroup>
+
+## Migrating to v1.3.x
+
+### What's New
+
+- **v1.3.0**: Added `rerenderOnCallbackChange` prop
+- **v1.3.1**: Fixed `getResponsePromise` return type
+
+### Changes
+
+<AccordionGroup>
+  <Accordion title="v1.3.0 - rerenderOnCallbackChange Prop">
+    **Added**: New `rerenderOnCallbackChange` prop to control widget re-rendering
+
+    **Migration**: No changes required. This is a new opt-in feature.
+
+    **Before** (stale closures issue):
+    ```tsx
+    const [count, setCount] = useState(0)
+
+    // This callback captures the initial count value
+    const handleSuccess = (token: string) => {
+      console.log('Count:', count) // Always logs 0
+    }
+
+    return <Turnstile siteKey="..." onSuccess={handleSuccess} />
+    ```
+
+    **After** (fixed with new prop):
+    ```tsx
+    const [count, setCount] = useState(0)
+
+    const handleSuccess = useCallback((token: string) => {
+      console.log('Count:', count) // Logs current count
+    }, [count])
+
+    return (
+      <Turnstile 
+        siteKey="..."
+        onSuccess={handleSuccess}
+        rerenderOnCallbackChange={true}
+      />
+    )
+    ```
+
+    **Note**: The default behavior is unchanged (`rerenderOnCallbackChange={false}`).
+  </Accordion>
+
+  <Accordion title="v1.3.1 - TypeScript Improvements">
+    **Fixed**: `getResponsePromise` return type now correctly excludes `undefined`
+
+    **Migration**: If you were using type assertions, you can remove them:
+
+    **Before**:
+    ```tsx
+    const token = await turnstileRef.current?.getResponsePromise()
+    if (token) {
+      // token might be undefined
+    }
+    ```
+
+    **After**:
+    ```tsx
+    // token is guaranteed to be string (or throws)
+    const token = await turnstileRef.current!.getResponsePromise()
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Migrating to v1.2.x
+
+### Changes
+
+<Accordion title="v1.2.0 - renderConfig Dependencies">
+  **Fixed**: Missing dependencies in `renderConfig` causing stale props
+
+  **Migration**: No code changes required. Update normally:
+  ```bash
+  npm install @marsidev/react-turnstile@1.2.0
+  ```
+
+  The widget now properly re-renders when options change.
+</Accordion>
+
+## Migrating to v1.1.x
+
+### Changes
+
+<Accordion title="v1.1.0 - React 19 Support">
+  **Added**: Support for React 19
+
+  **Migration**: No changes required. The library now supports React 17, 18, and 19:
+
+  ```json
+  {
+    "peerDependencies": {
+      "react": "^17.0.2 || ^18.0.0 || ^19.0",
+      "react-dom": "^17.0.2 || ^18.0.0 || ^19.0"
+    }
+  }
+  ```
+</Accordion>
+
+## Migrating to v1.0.x
+
+### Breaking Changes
+
+<AccordionGroup>
+  <Accordion title="v1.0.0 - ESM Only and Peer Dependencies">
+    **Breaking**: Library now ships as ESM only
+
+    **Migration**:
+
+    1. **Ensure your project supports ESM**
+       
+       For Next.js, ensure you're on Next.js 13+:
+       ```json
+       {
+         "type": "module"
+       }
+       ```
+
+    2. **Update peer dependencies**
+       
+       React 17+ is now required:
+       ```bash
+       npm install react@^18.0.0 react-dom@^18.0.0
+       ```
+
+    3. **Update imports**
+       
+       No changes to import syntax, but ensure your bundler supports ESM.
+
+    **What Changed**:
+    - CommonJS builds removed
+    - Only ESM exports available
+    - Minimum React version is now 17.0.2
+  </Accordion>
+
+  <Accordion title="v1.0.0 - refreshExpired Option">
+    **Breaking**: `autoResetOnExpire` prop removed
+
+    **Migration**: Use `refreshExpired` option instead
+
+    **Before**:
+    ```tsx
+    <Turnstile
+      siteKey="your-site-key"
+      autoResetOnExpire={false}
+    />
+    ```
+
+    **After**:
+    ```tsx
+    <Turnstile
+      siteKey="your-site-key"
+      options={{
+        refreshExpired: 'manual' // or 'never' or 'auto'
+      }}
+    />
+    ```
+
+    **Values**:
+    - `'auto'` (default): Automatically refresh when expired
+    - `'manual'`: Show refresh button to user
+    - `'never'`: Never refresh
+  </Accordion>
+
+  <Accordion title="v1.0.1 - 'use client' Directive">
+    **Fixed**: Missing `'use client'` directive in build output
+
+    **Migration**: No changes required if you're already using client components.
+    
+    This fix ensures the library works properly in Next.js App Router without manual configuration.
+  </Accordion>
+
+  <Accordion title="v1.0.2 - Default Exports">
+    **Fixed**: Added default exports for better compatibility
+
+    **Migration**: Both import styles now work:
+
+    ```tsx
+    // Named import (recommended)
+    import { Turnstile } from '@marsidev/react-turnstile'
+
+    // Default import (now supported)
+    import Turnstile from '@marsidev/react-turnstile'
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Version History
+
+| Version | Release Date | Key Changes |
+|---------|--------------|-------------|
+| 1.4.2   | 2025-03     | Security updates, feedbackEnabled fix |
+| 1.4.1   | 2025-02     | Race condition fix |
+| 1.4.0   | 2025-01     | Dependency updates |
+| 1.3.1   | 2024        | TypeScript improvements |
+| 1.3.0   | 2024        | rerenderOnCallbackChange prop |
+| 1.2.0   | 2024        | renderConfig dependencies fix |
+| 1.1.0   | 2024        | React 19 support |
+| 1.0.2   | 2024        | Default exports |
+| 1.0.1   | 2024        | 'use client' directive fix |
+| 1.0.0   | 2024        | ESM only, refreshExpired option |
+
+## Upgrade Path
+
+### From 0.x to Latest
+
+If you're on a very old version, upgrade incrementally:
+
+```bash
+# 1. Upgrade to 1.0.x first
+npm install @marsidev/react-turnstile@1.0.2
+
+# 2. Fix breaking changes (see v1.0.0 section above)
+
+# 3. Upgrade to latest
+npm install @marsidev/react-turnstile@latest
+```
+
+### From 1.x to Latest
+
+No breaking changes within 1.x versions:
+
+```bash
+npm install @marsidev/react-turnstile@latest
+```
+
+## Getting Help
+
+If you encounter issues during migration:
+
+1. Check the [Troubleshooting Guide](/advanced/troubleshooting)
+2. Review [GitHub Issues](https://github.com/marsidev/react-turnstile/issues)
+3. Read the [Changelog](/resources/changelog)
+4. Open a new issue with your migration problem
+
+## Stay Updated
+
+<CardGroup cols={2}>
+  <Card title="GitHub Releases" icon="github" href="https://github.com/marsidev/react-turnstile/releases">
+    Subscribe to release notifications
+  </Card>
+  
+  <Card title="npm Package" icon="npm" href="https://www.npmjs.com/package/@marsidev/react-turnstile">
+    View package updates
+  </Card>
+</CardGroup>

@@ -1,0 +1,390 @@
+---
+title: Dynamic Callbacks
+description: Learn how to handle dynamic callback updates and optimize performance with rerenderOnCallbackChange.
+---
+
+## Overview
+
+By default, React Turnstile uses stable callback references for optimal performance. However, you may need callbacks to react to changing dependencies. The `rerenderOnCallbackChange` prop controls this behavior.
+
+## Default Behavior (Stable Callbacks)
+
+By default, callback props don't cause widget re-renders:
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+import { useState } from 'react'
+
+function MyForm() {
+  const [count, setCount] = useState(0)
+
+  return (
+    <div>
+      <Turnstile
+        siteKey="1x00000000000000000000AA"
+        onSuccess={(token) => {
+          // This uses the latest count value, even though
+          // the widget doesn't re-render when count changes
+          console.log('Success! Current count:', count)
+        }}
+      />
+      <button onClick={() => setCount(count + 1)}>
+        Count: {count}
+      </button>
+    </div>
+  )
+}
+```
+
+<Tip>
+  Stable callbacks provide better performance by preventing unnecessary widget re-renders.
+</Tip>
+
+## How Stable Callbacks Work
+
+Internally, React Turnstile stores callback references and updates them on every render without triggering widget re-renders:
+
+```tsx lib.tsx lines
+// From lib.tsx:89-98
+const callbacksRef = useRef({
+  onSuccess,
+  onError,
+  onExpire,
+  onBeforeInteractive,
+  onAfterInteractive,
+  onUnsupported,
+  onTimeout
+})
+
+useEffect(() => {
+  if (!rerenderOnCallbackChange) {
+    callbacksRef.current = {
+      onSuccess,
+      onError,
+      // ... other callbacks
+    }
+  }
+})
+```
+
+This allows callbacks to access the latest values without causing expensive widget re-renders.
+
+## Dynamic Callbacks
+
+Enable dynamic callbacks when you need the widget to re-render on callback changes:
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+import { useState, useCallback } from 'react'
+
+function DynamicForm() {
+  const [mode, setMode] = useState<'login' | 'signup'>('login')
+
+  // Wrap callbacks in useCallback to prevent unnecessary re-renders
+  const handleSuccess = useCallback((token: string) => {
+    if (mode === 'login') {
+      console.log('Login token:', token)
+    } else {
+      console.log('Signup token:', token)
+    }
+  }, [mode])
+
+  return (
+    <div>
+      <select value={mode} onChange={(e) => setMode(e.target.value as any)}>
+        <option value="login">Login</option>
+        <option value="signup">Sign Up</option>
+      </select>
+      <Turnstile
+        siteKey="1x00000000000000000000AA"
+        rerenderOnCallbackChange={true}
+        onSuccess={handleSuccess}
+      />
+    </div>
+  )
+}
+```
+
+<Warning>
+  When using `rerenderOnCallbackChange={true}`, always wrap your callbacks with `useCallback` to prevent re-renders on every parent render.
+</Warning>
+
+## When to Use Dynamic Callbacks
+
+### Use Dynamic Callbacks When:
+- Callbacks need different behavior based on component state
+- The widget configuration must change based on callback dependencies
+- You're intentionally triggering a widget reset via callback changes
+
+### Use Stable Callbacks (Default) When:
+- Callbacks only perform actions (API calls, state updates)
+- Performance is critical
+- The widget behavior doesn't depend on callback changes
+
+## Common Patterns
+
+### Pattern 1: Context-Dependent Validation
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+import { useState, useCallback } from 'react'
+
+function ContextualForm() {
+  const [formType, setFormType] = useState<'contact' | 'support'>('contact')
+
+  const handleSuccess = useCallback(async (token: string) => {
+    const endpoint = formType === 'contact' ? '/api/contact' : '/api/support'
+    await fetch(endpoint, {
+      method: 'POST',
+      body: JSON.stringify({ token })
+    })
+  }, [formType])
+
+  return (
+    <div>
+      <select value={formType} onChange={(e) => setFormType(e.target.value as any)}>
+        <option value="contact">Contact</option>
+        <option value="support">Support</option>
+      </select>
+      <Turnstile
+        siteKey="1x00000000000000000000AA"
+        rerenderOnCallbackChange={true}
+        onSuccess={handleSuccess}
+      />
+    </div>
+  )
+}
+```
+
+### Pattern 2: Multi-Step Form
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+import { useState, useCallback } from 'react'
+
+function MultiStepForm() {
+  const [step, setStep] = useState(1)
+  const [tokens, setTokens] = useState<Record<number, string>>({})
+
+  const handleSuccess = useCallback((token: string) => {
+    console.log(`Step ${step} verified`)
+    setTokens(prev => ({ ...prev, [step]: token }))
+  }, [step])
+
+  const handleError = useCallback((error: string) => {
+    console.error(`Step ${step} error:`, error)
+  }, [step])
+
+  return (
+    <div>
+      <h2>Step {step}</h2>
+      <Turnstile
+        siteKey="1x00000000000000000000AA"
+        rerenderOnCallbackChange={true}
+        onSuccess={handleSuccess}
+        onError={handleError}
+      />
+      <button onClick={() => setStep(step + 1)}>Next Step</button>
+    </div>
+  )
+}
+```
+
+### Pattern 3: User-Specific Actions
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+import { useCallback } from 'react'
+
+interface User {
+  id: string
+  name: string
+}
+
+function UserForm({ user }: { user: User }) {
+  const handleSuccess = useCallback(async (token: string) => {
+    await fetch('/api/verify', {
+      method: 'POST',
+      body: JSON.stringify({
+        token,
+        userId: user.id,
+        userName: user.name
+      })
+    })
+  }, [user.id, user.name])
+
+  return (
+    <Turnstile
+      siteKey="1x00000000000000000000AA"
+      rerenderOnCallbackChange={true}
+      onSuccess={handleSuccess}
+    />
+  )
+}
+```
+
+## Performance Considerations
+
+### With Stable Callbacks (Default)
+
+```tsx
+// Widget renders once, callbacks update internally
+function GoodPerformance() {
+  const [data, setData] = useState({})
+
+  return (
+    <Turnstile
+      siteKey="1x00000000000000000000AA"
+      onSuccess={(token) => {
+        // Accesses latest data value without re-render
+        console.log('Data:', data)
+      }}
+    />
+  )
+}
+```
+
+### With Dynamic Callbacks
+
+```tsx
+// Widget re-renders when handleSuccess changes
+function ControlledRerender() {
+  const [data, setData] = useState({})
+
+  // Without useCallback, widget re-renders on every parent render
+  const handleSuccess = (token: string) => {
+    console.log('Data:', data)
+  }
+
+  return (
+    <Turnstile
+      siteKey="1x00000000000000000000AA"
+      rerenderOnCallbackChange={true}
+      onSuccess={handleSuccess} // ⚠️ Creates new function every render!
+    />
+  )
+}
+```
+
+```tsx
+// With useCallback, widget only re-renders when data changes
+function OptimizedRerender() {
+  const [data, setData] = useState({})
+
+  const handleSuccess = useCallback((token: string) => {
+    console.log('Data:', data)
+  }, [data]) // Only re-creates when data changes
+
+  return (
+    <Turnstile
+      siteKey="1x00000000000000000000AA"
+      rerenderOnCallbackChange={true}
+      onSuccess={handleSuccess} // ✓ Stable reference
+    />
+  )
+}
+```
+
+## Callback Execution Flow
+
+Understanding how callbacks are executed:
+
+```tsx lib.tsx
+// When rerenderOnCallbackChange is false (default)
+callback: token => {
+  widgetSolved.current = true
+  callbacksRef.current.onSuccess?.(token) // Uses ref
+}
+
+// When rerenderOnCallbackChange is true
+callback: token => {
+  widgetSolved.current = true
+  onSuccess?.(token) // Uses prop directly
+}
+```
+
+## Complete Example
+
+A production example demonstrating both approaches:
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+import { useState, useCallback } from 'react'
+
+function CompleteExample() {
+  const [step, setStep] = useState<'email' | 'phone'>('email')
+  const [result, setResult] = useState<string>()
+
+  // Option 1: Stable callbacks (better performance)
+  const handleSuccessStable = (token: string) => {
+    // Accesses latest step and result
+    console.log('Stable callback - Step:', step, 'Result:', result)
+    setResult(`Verified ${step} with token ${token}`)
+  }
+
+  // Option 2: Dynamic callbacks (intentional re-render)
+  const handleSuccessDynamic = useCallback((token: string) => {
+    console.log('Dynamic callback - Step:', step)
+    setResult(`Verified ${step} with token ${token}`)
+  }, [step])
+
+  const [useDynamic, setUseDynamic] = useState(false)
+
+  return (
+    <div>
+      <label>
+        <input
+          type="checkbox"
+          checked={useDynamic}
+          onChange={(e) => setUseDynamic(e.target.checked)}
+        />
+        Use dynamic callbacks
+      </label>
+
+      <select value={step} onChange={(e) => setStep(e.target.value as any)}>
+        <option value="email">Email Verification</option>
+        <option value="phone">Phone Verification</option>
+      </select>
+
+      <Turnstile
+        siteKey="1x00000000000000000000AA"
+        rerenderOnCallbackChange={useDynamic}
+        onSuccess={useDynamic ? handleSuccessDynamic : handleSuccessStable}
+      />
+
+      {result && <p>{result}</p>}
+    </div>
+  )
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Default to Stable" icon="gauge-high">
+    Use default stable callbacks for better performance
+  </Card>
+  <Card title="Use useCallback" icon="code">
+    Always wrap dynamic callbacks in `useCallback`
+  </Card>
+  <Card title="Minimize Dependencies" icon="sitemap">
+    Keep callback dependencies minimal
+  </Card>
+  <Card title="Profile Performance" icon="chart-line">
+    Use React DevTools to profile re-renders
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Component Props" icon="sliders" href="/core-concepts/component-props">
+    View all component props
+  </Card>
+  <Card title="Widget Lifecycle" icon="circle-nodes" href="/core-concepts/widget-lifecycle">
+    Understand callback execution order
+  </Card>
+  <Card title="TypeScript Usage" icon="code" href="/advanced/typescript-usage">
+    Type your callbacks properly
+  </Card>
+</CardGroup>

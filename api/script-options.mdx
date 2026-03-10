@@ -1,0 +1,241 @@
+---
+title: 'ScriptOptions'
+description: 'Options for customizing the Turnstile script injection'
+icon: 'code'
+---
+
+## Interface
+
+```tsx
+interface ScriptOptions {
+  nonce?: string
+  defer?: boolean
+  async?: boolean
+  appendTo?: 'head' | 'body'
+  id?: string
+  onLoadCallbackName?: string
+  onError?: () => void
+  crossOrigin?: string
+}
+```
+
+## Usage
+
+Pass these options via the `scriptOptions` prop:
+
+```tsx
+<Turnstile
+  siteKey="your-site-key"
+  scriptOptions={{
+    defer: true,
+    async: true,
+    nonce: 'random-nonce-value'
+  }}
+/>
+```
+
+## Options
+
+<ParamField path="nonce" type="string" default="undefined">
+  Custom nonce for the injected script. Used for Content Security Policy (CSP) compliance.
+  
+  ```tsx
+  scriptOptions={{ nonce: 'random-nonce-value' }}
+  ```
+  
+  **Example with CSP:**
+  ```html
+  <meta http-equiv="Content-Security-Policy" 
+        content="script-src 'nonce-random-nonce-value'">
+  ```
+</ParamField>
+
+<ParamField path="defer" type="boolean" default="true">
+  Whether to set the injected script as deferred. Deferred scripts execute after the document has been parsed.
+  
+  ```tsx
+  scriptOptions={{ defer: true }}
+  ```
+</ParamField>
+
+<ParamField path="async" type="boolean" default="true">
+  Whether to set the injected script as async. Async scripts execute as soon as they're loaded.
+  
+  ```tsx
+  scriptOptions={{ async: true }}
+  ```
+</ParamField>
+
+<ParamField path="appendTo" type="'head' | 'body'" default="'head'">
+  Where to inject the script in the document.
+  
+  - `'head'`: Appends to `<head>` element
+  - `'body'`: Appends to `<body>` element
+  
+  ```tsx
+  scriptOptions={{ appendTo: 'body' }}
+  ```
+</ParamField>
+
+<ParamField path="id" type="string" default="'cf-turnstile-script'">
+  Custom ID for the injected script element. Useful for identifying the script in the DOM.
+  
+  ```tsx
+  scriptOptions={{ id: 'my-turnstile-script' }}
+  ```
+</ParamField>
+
+<ParamField path="onLoadCallbackName" type="string" default="'onloadTurnstileCallback'">
+  Custom name for the global onload callback function. This function is called when the Turnstile script loads.
+  
+  ```tsx
+  scriptOptions={{ onLoadCallbackName: 'myCustomCallback' }}
+  ```
+</ParamField>
+
+<ParamField path="onError" type="() => void" default="undefined">
+  Callback invoked when the script fails to load (e.g., Cloudflare has an outage).
+  
+  ```tsx
+  scriptOptions={{
+    onError: () => {
+      console.error('Failed to load Turnstile script')
+      // Show fallback UI
+    }
+  }}
+  ```
+</ParamField>
+
+<ParamField path="crossOrigin" type="string" default="undefined">
+  Custom `crossOrigin` attribute for the injected script.
+  
+  Accepted values: `'anonymous'`, `'use-credentials'`
+  
+  ```tsx
+  scriptOptions={{ crossOrigin: 'anonymous' }}
+  ```
+</ParamField>
+
+## Common Scenarios
+
+### Content Security Policy (CSP)
+
+When using CSP, you need to provide a nonce:
+
+```tsx
+function MyComponent({ nonce }: { nonce: string }) {
+  return (
+    <Turnstile
+      siteKey="your-site-key"
+      scriptOptions={{ nonce }}
+    />
+  )
+}
+```
+
+### Manual Script Injection
+
+If you want to inject the script manually:
+
+```tsx
+import { useEffect } from 'react'
+import Turnstile, { injectTurnstileScript } from '@marsidev/react-turnstile'
+
+function MyComponent() {
+  useEffect(() => {
+    injectTurnstileScript({
+      scriptOptions: {
+        defer: false,
+        async: true,
+        appendTo: 'body'
+      }
+    })
+  }, [])
+
+  return (
+    <Turnstile
+      siteKey="your-site-key"
+      injectScript={false}
+    />
+  )
+}
+```
+
+### Error Handling
+
+Handle script loading errors gracefully:
+
+```tsx
+import { useState } from 'react'
+import Turnstile from '@marsidev/react-turnstile'
+
+function MyComponent() {
+  const [scriptError, setScriptError] = useState(false)
+
+  if (scriptError) {
+    return <div>Turnstile is currently unavailable. Please try again later.</div>
+  }
+
+  return (
+    <Turnstile
+      siteKey="your-site-key"
+      scriptOptions={{
+        onError: () => setScriptError(true)
+      }}
+    />
+  )
+}
+```
+
+### Optimizing Load Performance
+
+```tsx
+<Turnstile
+  siteKey="your-site-key"
+  scriptOptions={{
+    defer: true,
+    async: true,
+    appendTo: 'body' // Load after body content
+  }}
+/>
+```
+
+## Default Script URL
+
+The Turnstile script is loaded from:
+
+```
+https://challenges.cloudflare.com/turnstile/v0/api.js
+```
+
+With query parameters:
+- `onload`: The callback function name
+- `render`: `'explicit'` (controlled by the library)
+
+Final URL example:
+```
+https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback&render=explicit
+```
+
+## Constants
+
+The following constants are exported and can be imported:
+
+```tsx
+import {
+  SCRIPT_URL,
+  DEFAULT_SCRIPT_ID,
+  DEFAULT_ONLOAD_NAME
+} from '@marsidev/react-turnstile'
+
+console.log(SCRIPT_URL) // 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+console.log(DEFAULT_SCRIPT_ID) // 'cf-turnstile-script'
+console.log(DEFAULT_ONLOAD_NAME) // 'onloadTurnstileCallback'
+```
+
+See [Constants](/api/constants) for all exported constants.
+
+## Related Types
+
+- [TurnstileProps](/api/turnstile-props) - Component props
+- [Constants](/api/constants) - Exported constants

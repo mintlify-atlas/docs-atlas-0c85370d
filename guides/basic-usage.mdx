@@ -1,0 +1,207 @@
+---
+title: Basic Usage
+description: Learn how to use the Turnstile component in your React application.
+---
+
+## Overview
+
+The most basic usage of React Turnstile involves importing the component and providing your Cloudflare sitekey. This guide covers common usage patterns and best practices.
+
+## Simple Implementation
+
+Here's the simplest way to add Turnstile to your React component:
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+
+function MyForm() {
+  return (
+    <form>
+      <input type="email" placeholder="Email" />
+      <Turnstile siteKey="1x00000000000000000000AA" />
+      <button type="submit">Submit</button>
+    </form>
+  )
+}
+```
+
+<Note>
+  Replace `1x00000000000000000000AA` with your actual Cloudflare Turnstile sitekey. You can obtain one from the [Cloudflare Dashboard](https://dash.cloudflare.com/).
+</Note>
+
+## Handling Success Callback
+
+Capture the verification token when the challenge is successfully completed:
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+import { useState } from 'react'
+
+function MyForm() {
+  const [token, setToken] = useState<string>()
+
+  return (
+    <form>
+      <input type="email" placeholder="Email" />
+      <Turnstile
+        siteKey="1x00000000000000000000AA"
+        onSuccess={(token) => {
+          console.log('Verification successful! Token:', token)
+          setToken(token)
+        }}
+      />
+      <button type="submit" disabled={!token}>
+        Submit
+      </button>
+    </form>
+  )
+}
+```
+
+## Complete Form Integration
+
+Here's a complete example with form submission and error handling:
+
+```tsx
+import { Turnstile } from '@marsidev/react-turnstile'
+import { useState } from 'react'
+
+function ContactForm() {
+  const [token, setToken] = useState<string>()
+  const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    
+    if (!token) {
+      alert('Please complete the verification')
+      return
+    }
+
+    setStatus('submitting')
+
+    try {
+      const formData = new FormData(e.currentTarget)
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.get('email'),
+          message: formData.get('message'),
+          turnstileToken: token
+        })
+      })
+
+      if (response.ok) {
+        setStatus('success')
+      } else {
+        setStatus('error')
+      }
+    } catch (error) {
+      setStatus('error')
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        type="email"
+        name="email"
+        placeholder="Email"
+        required
+      />
+      <textarea
+        name="message"
+        placeholder="Message"
+        required
+      />
+      <Turnstile
+        siteKey="1x00000000000000000000AA"
+        onSuccess={setToken}
+        onError={() => setToken(undefined)}
+        onExpire={() => setToken(undefined)}
+      />
+      <button type="submit" disabled={!token || status === 'submitting'}>
+        {status === 'submitting' ? 'Submitting...' : 'Submit'}
+      </button>
+      {status === 'success' && <p>Form submitted successfully!</p>}
+      {status === 'error' && <p>Error submitting form. Please try again.</p>}
+    </form>
+  )
+}
+```
+
+## Widget Customization
+
+### Theme
+
+Customize the widget appearance:
+
+```tsx
+<Turnstile
+  siteKey="1x00000000000000000000AA"
+  options={{
+    theme: 'dark' // or 'light', 'auto'
+  }}
+/>
+```
+
+### Size
+
+Control the widget size:
+
+```tsx
+<Turnstile
+  siteKey="1x00000000000000000000AA"
+  options={{
+    size: 'compact' // or 'normal', 'flexible'
+  }}
+/>
+```
+
+### Language
+
+Set a specific language:
+
+```tsx
+<Turnstile
+  siteKey="1x00000000000000000000AA"
+  options={{
+    language: 'es' // Spanish
+  }}
+/>
+```
+
+## Lifecycle Callbacks
+
+React to various widget events:
+
+```tsx
+<Turnstile
+  siteKey="1x00000000000000000000AA"
+  onSuccess={(token) => console.log('Success:', token)}
+  onError={(error) => console.error('Error:', error)}
+  onExpire={() => console.log('Token expired')}
+  onBeforeInteractive={() => console.log('Before interactive')}
+  onAfterInteractive={() => console.log('After interactive')}
+  onUnsupported={() => console.log('Browser not supported')}
+  onTimeout={() => console.log('Widget timed out')}
+/>
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Multiple Widgets" icon="grid" href="/guides/multiple-widgets">
+    Use multiple widgets on a single page
+  </Card>
+  <Card title="Interact with Widget" icon="hand-pointer" href="/guides/interact-with-widget">
+    Control the widget programmatically
+  </Card>
+  <Card title="Server Validation" icon="server" href="/guides/server-validation">
+    Validate tokens on your server
+  </Card>
+  <Card title="Component Props" icon="sliders" href="/core-concepts/component-props">
+    Explore all available props
+  </Card>
+</CardGroup>

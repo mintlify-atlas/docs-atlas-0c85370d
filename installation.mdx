@@ -1,0 +1,90 @@
+---
+title: "Installation"
+description: "Install React Turnstile and get ready to integrate Cloudflare Turnstile into your React application"
+---
+
+## Package Manager Installation
+
+Install `@marsidev/react-turnstile` using your preferred package manager:
+
+<CodeGroup>
+
+```bash npm
+npm install @marsidev/react-turnstile
+```
+
+```bash yarn
+yarn add @marsidev/react-turnstile
+```
+
+```bash pnpm
+pnpm add @marsidev/react-turnstile
+```
+
+</CodeGroup>
+
+## Peer Dependencies
+
+React Turnstile requires React and React DOM as peer dependencies. The package supports:
+
+- **React**: `^17.0.2 || ^18.0.0 || ^19.0`
+- **React DOM**: `^17.0.2 || ^18.0.0 || ^19.0`
+
+<Note>
+If you're using a modern React application framework like Next.js, Create React App, or Vite, these dependencies are already included in your project.
+</Note>
+
+## Verify Installation
+
+After installation, verify that the package is correctly installed by checking your `package.json`:
+
+```json package.json
+{
+  "dependencies": {
+    "@marsidev/react-turnstile": "^1.4.2",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  }
+}
+```
+
+## TypeScript Support
+
+React Turnstile is written in TypeScript and includes built-in type definitions. No additional `@types` packages are required.
+
+<Check>
+Type definitions are automatically available when you import the package:
+
+```typescript
+import { Turnstile, TurnstileInstance, TurnstileProps } from '@marsidev/react-turnstile'
+```
+</Check>
+
+## What's Included
+
+The package exports:
+
+- **`Turnstile`** - Main React component for rendering Turnstile widgets
+- **TypeScript types** - Complete type definitions for all props and API methods
+- **Constants** - Default configuration values like `DEFAULT_CONTAINER_ID`, `DEFAULT_SCRIPT_ID`
+- **ESM module** - Modern ES module format for optimal tree-shaking
+
+## Next Steps
+
+Once installed, you're ready to integrate Turnstile into your application:
+
+<CardGroup cols={2}>
+
+<Card title="Quickstart" icon="rocket" href="/quickstart">
+  Get your first Turnstile widget up and running in minutes
+</Card>
+
+<Card title="Basic Usage" icon="code" href="/guides/basic-usage">
+  Learn the fundamentals of using the Turnstile component
+</Card>
+
+</CardGroup>
+
+<Warning>
+**Important**: Before you can use Turnstile in production, you need to obtain a site key and secret key from Cloudflare. See the [Quickstart guide](/quickstart) for instructions.
+</Warning>

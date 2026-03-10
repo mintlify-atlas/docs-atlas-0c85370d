@@ -1,0 +1,645 @@
+---
+title: Script Injection
+description: How React Turnstile loads the Cloudflare Turnstile script automatically or manually
+---
+
+React Turnstile automatically injects the Cloudflare Turnstile script into your page. This page explains how script injection works, how to customize it, and how to handle it manually for advanced use cases.
+
+## Default Behavior
+
+By default, the Turnstile component automatically injects the Cloudflare script when it mounts:
+
+```tsx
+<Turnstile siteKey="your-site-key" />
+```
+
+This single line of code:
+1. Injects the script: `https://challenges.cloudflare.com/turnstile/v0/api.js`
+2. Waits for it to load
+3. Renders the widget
+
+<Note>
+**Single Script Instance:** The script is injected only once per page, even if you have multiple Turnstile widgets. All widgets share the same global `window.turnstile` instance.
+</Note>
+
+## How Script Injection Works
+
+The injection logic is defined in `utils.ts:22-71`:
+
+<CodeGroup>
+```tsx Script Injection Logic (utils.ts:22-71)
+export const injectTurnstileScript = ({
+  render = 'explicit',
+  onLoadCallbackName = DEFAULT_ONLOAD_NAME,
+  scriptOptions: {
+    nonce = '',
+    defer = true,
+    async = true,
+    id = '',
+    appendTo,
+    onError,
+    crossOrigin = ''
+  } = {}
+}: InjectTurnstileScriptParams) => {
+  const scriptId = id || DEFAULT_SCRIPT_ID
+
+  // Prevent duplicate injection
+  if (checkElementExistence(scriptId)) {
+    return
+  }
+
+  const script = document.createElement('script')
+  script.id = scriptId
+  script.src = `${SCRIPT_URL}?onload=${onLoadCallbackName}&render=${render}`
+
+  // Prevent duplicate script injection with the same src
+  if (document.querySelector(`script[src="${script.src}"]`)) {
+    return
+  }
+
+  script.defer = !!defer
+  script.async = !!async
+
+  if (nonce) {
+    script.nonce = nonce
+  }
+
+  if (crossOrigin) {
+    script.crossOrigin = crossOrigin
+  }
+
+  if (onError) {
+    script.onerror = onError
+    delete window[onLoadCallbackName]
+  }
+
+  const parentEl = appendTo === 'body' ? document.body : document.getElementsByTagName('head')[0]
+  parentEl!.appendChild(script)
+}
+```
+
+```tsx Constants (utils.ts:3-6)
+export const SCRIPT_URL = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+export const DEFAULT_SCRIPT_ID = 'cf-turnstile-script'
+export const DEFAULT_CONTAINER_ID = 'cf-turnstile'
+export const DEFAULT_ONLOAD_NAME = 'onloadTurnstileCallback'
+```
+</CodeGroup>
+
+### Key Features
+
+- **Duplicate Prevention:** Checks for existing script by ID and src before injection
+- **Onload Callback:** Uses query parameter `?onload=` for load notification
+- **Explicit Render:** Always uses `render=explicit` to control rendering via React
+- **Async/Defer:** Scripts are async and deferred by default for better performance
+
+## Customizing Script Options
+
+Use the `scriptOptions` prop to customize script injection:
+
+### ScriptOptions Interface
+
+<ParamField path="scriptOptions.nonce" type="string" default="undefined">
+  Custom nonce for the injected script. Required for Content Security Policy (CSP) compliance.
+  
+  ```tsx
+  <Turnstile
+    siteKey="your-site-key"
+    scriptOptions={{ nonce: 'your-csp-nonce' }}
+  />
+  ```
+</ParamField>
+
+<ParamField path="scriptOptions.defer" type="boolean" default={true}>
+  Whether to set the injected script as defer.
+  
+  ```tsx
+  <Turnstile
+    siteKey="your-site-key"
+    scriptOptions={{ defer: true }}
+  />
+  ```
+</ParamField>
+
+<ParamField path="scriptOptions.async" type="boolean" default={true}>
+  Whether to set the injected script as async.
+  
+  ```tsx
+  <Turnstile
+    siteKey="your-site-key"
+    scriptOptions={{ async: true }}
+  />
+  ```
+</ParamField>
+
+<ParamField path="scriptOptions.appendTo" type="'head' | 'body'" default="head">
+  Where to inject the script in the DOM.
+  
+  ```tsx
+  <Turnstile
+    siteKey="your-site-key"
+    scriptOptions={{ appendTo: 'body' }}
+  />
+  ```
+</ParamField>
+
+<ParamField path="scriptOptions.id" type="string" default="cf-turnstile-script">
+  Custom ID for the injected script element.
+  
+  ```tsx
+  <Turnstile
+    siteKey="your-site-key"
+    scriptOptions={{ id: 'my-custom-script-id' }}
+  />
+  ```
+</ParamField>
+
+<ParamField path="scriptOptions.onLoadCallbackName" type="string" default="onloadTurnstileCallback">
+  Custom name for the global onload callback function.
+  
+  ```tsx
+  <Turnstile
+    siteKey="your-site-key"
+    scriptOptions={{ onLoadCallbackName: 'myCustomCallback' }}
+  />
+  ```
+</ParamField>
+
+<ParamField path="scriptOptions.onError" type="() => void">
+  Callback invoked when the script fails to load (e.g., Cloudflare has an outage).
+  
+  ```tsx
+  <Turnstile
+    siteKey="your-site-key"
+    scriptOptions={{
+      onError: () => {
+        console.error('Failed to load Turnstile script')
+        // Show fallback UI or error message
+      }
+    }}
+  />
+  ```
+</ParamField>
+
+<ParamField path="scriptOptions.crossOrigin" type="string" default="undefined">
+  Custom crossOrigin attribute for the injected script.
+  
+  ```tsx
+  <Turnstile
+    siteKey="your-site-key"
+    scriptOptions={{ crossOrigin: 'anonymous' }}
+  />
+  ```
+</ParamField>
+
+## Content Security Policy (CSP)
+
+When using Content Security Policy, you need to allow the Turnstile script and provide a nonce.
+
+### CSP Headers
+
+Add these directives to your CSP policy:
+
+```http
+Content-Security-Policy: 
+  script-src 'nonce-YOUR_NONCE' https://challenges.cloudflare.com;
+  frame-src https://challenges.cloudflare.com;
+```
+
+### Using Nonce
+
+Generate a nonce on your server and pass it to the component:
+
+<CodeGroup>
+```tsx React Component
+import { Turnstile } from '@marsidev/react-turnstile'
+
+function MyForm({ nonce }: { nonce: string }) {
+  return (
+    <Turnstile
+      siteKey="your-site-key"
+      scriptOptions={{ nonce }}
+    />
+  )
+}
+```
+
+```tsx Next.js (App Router)
+import { headers } from 'next/headers'
+import { Turnstile } from '@marsidev/react-turnstile'
+
+export default function Page() {
+  const nonce = headers().get('x-nonce')
+  
+  return (
+    <Turnstile
+      siteKey="your-site-key"
+      scriptOptions={{ nonce: nonce || undefined }}
+    />
+  )
+}
+```
+
+```tsx Next.js Middleware
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { randomBytes } from 'crypto'
+
+export function middleware(request: NextRequest) {
+  const nonce = randomBytes(16).toString('base64')
+  const csp = `script-src 'nonce-${nonce}' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com;`
+  
+  const response = NextResponse.next()
+  response.headers.set('Content-Security-Policy', csp)
+  response.headers.set('x-nonce', nonce)
+  
+  return response
+}
+```
+</CodeGroup>
+
+<Warning>
+**Important:** The nonce must be:
+- Unique per request
+- Generated server-side
+- Included in both the CSP header and the script tag
+</Warning>
+
+## Manual Script Injection
+
+For advanced use cases, you can disable automatic injection and load the script yourself.
+
+### Disable Automatic Injection
+
+```tsx
+<Turnstile
+  siteKey="your-site-key"
+  injectScript={false}
+/>
+```
+
+### Manual Injection Methods
+
+<AccordionGroup>
+  <Accordion title="Method 1: HTML Script Tag">
+    Add the script directly in your HTML:
+    
+    ```html
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <script 
+          src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+          async
+          defer
+        ></script>
+      </head>
+      <body>
+        <div id="root"></div>
+      </body>
+    </html>
+    ```
+    
+    Then in React:
+    
+    ```tsx
+    <Turnstile
+      siteKey="your-site-key"
+      injectScript={false}
+    />
+    ```
+  </Accordion>
+  
+  <Accordion title="Method 2: Next.js Script Component">
+    Use Next.js `<Script>` component:
+    
+    ```tsx
+    import Script from 'next/script'
+    import { Turnstile } from '@marsidev/react-turnstile'
+    
+    export default function Page() {
+      return (
+        <>
+          <Script
+            src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+            strategy="lazyOnload"
+          />
+          
+          <Turnstile
+            siteKey="your-site-key"
+            injectScript={false}
+          />
+        </>
+      )
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Method 3: Custom Loader Hook">
+    Create a custom script loader:
+    
+    ```tsx
+    import { useEffect, useState } from 'react'
+    
+    function useLoadTurnstile() {
+      const [loaded, setLoaded] = useState(false)
+      
+      useEffect(() => {
+        // Check if already loaded
+        if (window.turnstile) {
+          setLoaded(true)
+          return
+        }
+        
+        // Check if script exists
+        const existing = document.getElementById('cf-turnstile-script')
+        if (existing) {
+          existing.addEventListener('load', () => setLoaded(true))
+          return
+        }
+        
+        // Inject script
+        const script = document.createElement('script')
+        script.id = 'cf-turnstile-script'
+        script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
+        script.async = true
+        script.defer = true
+        script.onload = () => setLoaded(true)
+        
+        document.head.appendChild(script)
+      }, [])
+      
+      return loaded
+    }
+    
+    // Usage
+    function MyForm() {
+      const scriptLoaded = useLoadTurnstile()
+      
+      if (!scriptLoaded) {
+        return <div>Loading...</div>
+      }
+      
+      return (
+        <Turnstile
+          siteKey="your-site-key"
+          injectScript={false}
+        />
+      )
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Method 4: Import in _app or Layout">
+    Load once for all pages:
+    
+    **Next.js Pages Router (_app.tsx):**
+    ```tsx
+    import type { AppProps } from 'next/app'
+    import Script from 'next/script'
+    
+    export default function App({ Component, pageProps }: AppProps) {
+      return (
+        <>
+          <Script
+            src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+            strategy="afterInteractive"
+          />
+          <Component {...pageProps} />
+        </>
+      )
+    }
+    ```
+    
+    **Next.js App Router (layout.tsx):**
+    ```tsx
+    import Script from 'next/script'
+    
+    export default function RootLayout({ children }: { children: React.ReactNode }) {
+      return (
+        <html>
+          <head>
+            <Script
+              src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+              strategy="afterInteractive"
+            />
+          </head>
+          <body>{children}</body>
+        </html>
+      )
+    }
+    ```
+    
+    Then use `injectScript={false}` on all widgets:
+    ```tsx
+    <Turnstile siteKey="your-site-key" injectScript={false} />
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Script Load Callbacks
+
+React when the script finishes loading:
+
+### onLoadScript Callback
+
+```tsx
+<Turnstile
+  siteKey="your-site-key"
+  onLoadScript={() => {
+    console.log('Turnstile script loaded')
+    console.log('window.turnstile available:', !!window.turnstile)
+  }}
+/>
+```
+
+### Script Error Handling
+
+```tsx
+<Turnstile
+  siteKey="your-site-key"
+  scriptOptions={{
+    onError: () => {
+      console.error('Failed to load Turnstile script')
+      // Show user-friendly error message
+      alert('Unable to load verification widget. Please check your internet connection.')
+    }
+  }}
+/>
+```
+
+## Script Loading States
+
+The library tracks script loading internally using a state machine:
+
+```tsx lib.tsx:22-46
+let turnstileState: 'unloaded' | 'loading' | 'ready' = 'unloaded'
+
+const ensureTurnstile = (onLoadCallbackName = DEFAULT_ONLOAD_NAME) => {
+  if (turnstileState === 'unloaded') {
+    turnstileState = 'loading'
+    window[onLoadCallbackName] = () => {
+      turnstileLoad.resolve()
+      turnstileState = 'ready'
+      delete window[onLoadCallbackName]
+    }
+  }
+  return turnstileLoadPromise
+}
+```
+
+### States
+
+- **unloaded**: Script hasn't been injected yet
+- **loading**: Script is currently loading
+- **ready**: Script loaded, `window.turnstile` is available
+
+<Note>
+This state is shared globally across all Turnstile instances on the page.
+</Note>
+
+## Multiple Widgets
+
+When you have multiple Turnstile widgets on the same page:
+
+```tsx
+function MultipleWidgets() {
+  return (
+    <>
+      {/* First widget injects script */}
+      <Turnstile siteKey="your-site-key" />
+      
+      {/* Subsequent widgets wait for the same script */}
+      <Turnstile siteKey="your-site-key" />
+      <Turnstile siteKey="your-site-key" />
+    </>
+  )
+}
+```
+
+**Behavior:**
+1. First widget injects the script (if not already present)
+2. All widgets wait for `turnstileState === 'ready'`
+3. Each widget renders independently once the script is loaded
+4. Only one script tag exists in the DOM
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Script Not Loading">
+    **Symptoms:** Widget never appears, console shows no errors
+    
+    **Solutions:**
+    1. Check if the script is being blocked by ad blockers or privacy extensions
+    2. Verify CSP headers allow `https://challenges.cloudflare.com`
+    3. Check network tab for failed script requests
+    4. Add `onLoadScript` and `scriptOptions.onError` to debug:
+    
+    ```tsx
+    <Turnstile
+      siteKey="your-site-key"
+      onLoadScript={() => console.log('Script loaded')}
+      scriptOptions={{
+        onError: () => console.error('Script failed to load')
+      }}
+    />
+    ```
+  </Accordion>
+  
+  <Accordion title="CSP Violations">
+    **Symptoms:** Console errors like "Refused to load script" or "Refused to frame"
+    
+    **Solutions:**
+    1. Add Cloudflare domains to CSP:
+    ```http
+    Content-Security-Policy: 
+      script-src 'nonce-NONCE' https://challenges.cloudflare.com;
+      frame-src https://challenges.cloudflare.com;
+      style-src 'nonce-NONCE' https://challenges.cloudflare.com;
+    ```
+    
+    2. Pass nonce to component:
+    ```tsx
+    <Turnstile
+      siteKey="your-site-key"
+      scriptOptions={{ nonce: 'YOUR_NONCE' }}
+    />
+    ```
+  </Accordion>
+  
+  <Accordion title="Duplicate Scripts">
+    **Symptoms:** Multiple script tags with same src in DOM
+    
+    **Solutions:**
+    This shouldn't happen due to built-in duplicate prevention, but if it does:
+    
+    1. Use `injectScript={false}` and inject manually once
+    2. Check for conflicting script injection libraries
+    3. Ensure all Turnstile instances use the same `scriptOptions.id`
+  </Accordion>
+  
+  <Accordion title="Manual Injection Not Working">
+    **Symptoms:** Widget doesn't render with `injectScript={false}`
+    
+    **Solutions:**
+    1. Ensure script URL includes `?render=explicit`:
+    ```html
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"></script>
+    ```
+    
+    2. Wait for script to load before rendering widget:
+    ```tsx
+    const [scriptReady, setScriptReady] = useState(false)
+    
+    useEffect(() => {
+      if (window.turnstile) {
+        setScriptReady(true)
+      }
+    }, [])
+    
+    if (!scriptReady) return <div>Loading...</div>
+    
+    return <Turnstile siteKey="your-site-key" injectScript={false} />
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Auto-Injection" icon="check">
+    Let the component handle script injection unless you have a specific reason not to
+  </Card>
+  
+  <Card title="Include Nonce for CSP" icon="shield">
+    Always provide a nonce when using Content Security Policy
+  </Card>
+  
+  <Card title="Handle Load Errors" icon="triangle-exclamation">
+    Implement `scriptOptions.onError` to gracefully handle script load failures
+  </Card>
+  
+  <Card title="One Script Per Page" icon="circle-check">
+    Don't manually inject the script if you're also using auto-injection
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Component Props" icon="sliders" href="/core-concepts/component-props">
+    Explore all component configuration options
+  </Card>
+  
+  <Card title="Widget Lifecycle" icon="clock" href="/core-concepts/widget-lifecycle">
+    Understand widget lifecycle and callbacks
+  </Card>
+  
+  <Card title="Script Options API" icon="code" href="/api/script-options">
+    View all script configuration options
+  </Card>
+  
+  <Card title="Troubleshooting" icon="triangle-exclamation" href="/advanced/troubleshooting">
+    Handle script and widget errors
+  </Card>
+</CardGroup>
