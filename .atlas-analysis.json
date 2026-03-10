@@ -1,0 +1,127 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "React Turnstile",
+  "projectDescription": "Cloudflare Turnstile integration for React with TypeScript support and automatic script injection.",
+  "theme": "palm",
+  "primaryColor": "#cb0404",
+  "lightColor": "#f3d2d2",
+  "darkColor": "#e37b84",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "core-concepts/component-props",
+              "core-concepts/widget-lifecycle",
+              "core-concepts/script-injection"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/basic-usage",
+              "guides/multiple-widgets",
+              "guides/manual-script-injection",
+              "guides/interact-with-widget",
+              "guides/get-widget-token",
+              "guides/handling-expiration",
+              "guides/dynamic-callbacks",
+              "guides/server-validation"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Components",
+            "pages": [
+              "api/turnstile-component"
+            ]
+          },
+          {
+            "group": "Types",
+            "pages": [
+              "api/turnstile-props",
+              "api/turnstile-instance",
+              "api/render-options",
+              "api/script-options",
+              "api/server-validation"
+            ]
+          },
+          {
+            "group": "Constants",
+            "pages": [
+              "api/constants"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Advanced",
+        "groups": [
+          {
+            "group": "Advanced Topics",
+            "pages": [
+              "advanced/ssr-support",
+              "advanced/typescript-usage",
+              "advanced/troubleshooting"
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "resources/examples",
+              "resources/migration-guide",
+              "resources/changelog"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Smart verification with minimal user interaction",
+    "Privacy-focused CAPTCHA alternative",
+    "Automatic Turnstile script injection",
+    "Server-side rendering (SSR) ready",
+    "Full TypeScript support with type definitions",
+    "Imperative API via refs for widget control",
+    "Multiple widget instances support",
+    "Customizable widget appearance and behavior",
+    "Built-in token validation helpers"
+  ],
+  "publicApiSurface": [
+    "Turnstile (React component)",
+    "TurnstileProps (TypeScript type)",
+    "TurnstileInstance (TypeScript type)",
+    "TurnstileServerValidationResponse (TypeScript type)",
+    "TurnstileServerValidationErrorCode (TypeScript type)",
+    "TurnstileTheme (TypeScript type)",
+    "TurnstileLangCode (TypeScript type)",
+    "ComponentRenderOptions (TypeScript type)",
+    "ScriptOptions (TypeScript type)",
+    "AppearanceMode (TypeScript type)",
+    "ExecutionMode (TypeScript type)",
+    "FailureRetryMode (TypeScript type)",
+    "RefreshExpiredMode (TypeScript type)",
+    "RefreshTimeoutMode (TypeScript type)",
+    "WidgetSize (TypeScript type)",
+    "DEFAULT_CONTAINER_ID (constant)",
+    "DEFAULT_SCRIPT_ID (constant)",
+    "DEFAULT_ONLOAD_NAME (constant)",
+    "SCRIPT_URL (constant)"
+  ]
+}
